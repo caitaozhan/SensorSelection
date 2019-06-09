@@ -1,2 +1,2 @@
 # SelectSensor
-Near-optimal low-cost transmitter detection, sensor selection.
+Near-optimal low-cost sensor selection.
