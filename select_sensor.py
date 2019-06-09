@@ -874,8 +874,10 @@ class SelectSensor:
             cost += 1
         #return # test speed for pure selection
         #logger.close()
-        print('Totel time of selection:', time.time() - start1)
+        print('Totel time of selection: {:.3f} s'.format(time.time() - start1))
+        start = time.time()
         subset_results = Parallel(n_jobs=cores, max_nbytes=None)(delayed(self.o_t_host)(subset_index) for subset_index in subset_to_compute)
+        print('Totel time of optimal  : {:.3f} s'.format(time.time() - start))
 
         for i in range(len(subset_results)):
             plot_data[i][2] = subset_results[i]
