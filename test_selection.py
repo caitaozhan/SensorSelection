@@ -5,7 +5,7 @@ from select_sensor import SelectSensor
 try:
     from cuda_kernals import o_t_approx_kernal, o_t_kernal, o_t_approx_dist_kernal, \
                              o_t_approx_kernal2, o_t_approx_dist_kernal2
-except Error:
+except Exception:
     pass
 import time
 import plots
@@ -13,11 +13,11 @@ import numpy as np
 import line_profiler
 
 
-def test_ipsn_homo():
+def ipsn_homo():
     '''2019 IPSN version
     '''
-    selectsensor = SelectSensor('config/ipsn_50.json')
-    selectsensor.init_data('data50/homogeneous-150-2/cov', 'data50/homogeneous-150-2/sensors', 'data50/homogeneous-150-2/hypothesis')
+    selectsensor = SelectSensor(grid_len=50)
+    selectsensor.init_data('data50/homogeneous-200/cov', 'data50/homogeneous-200/sensors', 'data50/homogeneous-200/hypothesis')
     # CPU version
     #selectsensor.select_offline_greedy(40)
     #selectsensor.select_offline_greedy2(5)
@@ -32,7 +32,7 @@ def test_ipsn_homo():
     #selectsensor.select_offline_greedy_p_lazy_gpu(15, 12, o_t_approx_kernal)
     #print('time = {}'.format(time.time()-start))
 
-    results = selectsensor.select_offline_greedy_lazy_gpu(150, 12, o_t_approx_kernal2)
+    results = selectsensor.select_offline_greedy_lazy_gpu(50, 10, o_t_approx_kernal2)
     for r in results:
         print(r[:-1])
 
@@ -337,7 +337,7 @@ def test_splat_localization_single_intruder():
 
 if __name__ == '__main__':
     #test_map()
-    test_ipsn_homo()
+    ipsn_homo()
     #test_ipsn_hetero()
     #test_splat(False, 1)
     #test_splat(False, 2)
