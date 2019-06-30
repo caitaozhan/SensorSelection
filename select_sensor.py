@@ -502,7 +502,12 @@ class SelectSensor:
         Return:
             (np.ndarray): a 2D sub covariance matrix
         '''
-        sub_cov = self.covariance[np.ix_(subset_index, subset_index)]
+        if subset_index is list:
+            sub_cov = self.covariance[np.ix_(subset_index, subset_index)]
+        else:
+            #print(subset_index)
+            sub_cov = self.covariance[subset_index, :]
+            sub_cov = sub_cov[:, subset_index]
         return sub_cov
 
 
@@ -897,26 +902,42 @@ class SelectSensor:
         print('Start GA selection (homo)')
         plot_data = []
         cost = 0                                            # |T| in the paper
-        subset_index = []                                   # T   in the paper
-        complement_index = [i for i in range(self.sen_num)] # S\T in the paper
-        while cost < budget and complement_index:
+        subset_index = np.array([])                         # T   in the paper
+        complement_index = np.array([i for i in range(self.sen_num)]).astype(int) # S\T in the paper
+        while cost < budget and len(complement_index) > 0:
             start = time.time()
-            candidate_results = Parallel(n_jobs=cores, max_nbytes=None)(delayed(self.inner_greedy_real)(subset_index, candidate) for candidate in complement_index)
+            #candidate_results = Parallel(n_jobs=cores, max_nbytes=None)(delayed(self.inner_greedy_real)(subset_index, candidate) for candidate in complement_index)
+            candidate_results = [self.inner_greedy_real(subset_index, candidate) for candidate in complement_index]
+            #print(candidate_results)
+            all_candidate_ot = [cr[1] for cr in candidate_results]
+            #print(all_candidate_ot)
+            best_candidate = np.argmax(all_candidate_ot)
+            #best_candidate = candidate_results[best_candidate][0]
+            best_sensor = complement_index[best_candidate]
+            maximum = all_candidate_ot[best_candidate]
+            # best_candidate = int(candidate_results[0][0])   # an element of candidate_results is a tuple - (int, float, list)
+            # maximum = candidate_results[0][1]          # where int is the candidate, float is the O_T, list is the subset_list with new candidate
+            # for candidate in candidate_results:
+            #     if candidate[1] > maximum:
+            #         best_candidate = int(candidate[0])
+            #         maximum = candidate[1]
 
-            best_candidate = candidate_results[0][0]   # an element of candidate_results is a tuple - (int, float, list)
-            maximum = candidate_results[0][1]          # where int is the candidate, float is the O_T, list is the subset_list with new candidate
-            for candidate in candidate_results:
-                if candidate[1] > maximum:
-                    best_candidate = candidate[0]
-                    maximum = candidate[1]
-
+            #print(best_candidate)
             print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
                 cost+1, time.time()-start, best_candidate, self.sensors[best_candidate].x, self.sensors[best_candidate].y, maximum))
 
-            ordered_insert(subset_index, best_candidate)    # guarantee subset_index always be sorted here
-            complement_index.remove(best_candidate)
+            inner_start_time = time.time()
+            subset_index = np.append(subset_index, best_sensor)
+            subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
+            #ordered_insert(subset_index, best_candidate)    # guarantee subset_index always be sorted here
+
+            #best_candidate_index = np.where(complement_index == best_sensor)
+            complement_index = np.delete(complement_index, best_candidate)
+            #print(best_candidate, subset_index, complement_index, inner_finish_time - inner_start_time)
+            #complement_index.remove(best_candidate)
+            print(cost)
             cost += 1
-            plot_data.append([len(subset_index), maximum, copy.copy(subset_index)])
+            plot_data.append([len(subset_index), maximum, subset_index])
 
             if maximum > 0.999999999:
                 break
@@ -1040,9 +1061,14 @@ class SelectSensor:
         Return:
             (tuple): (index, o_t_approx, new subset_index)
         '''
-        subset_index2 = copy.deepcopy(subset_index)
-        ordered_insert(subset_index2, candidate)     # guarantee subset_index always be sorted here
+        subset_index2 = np.append(subset_index, candidate).astype(int)
+        subset_index2 = np.partition(subset_index2, len(subset_index2) - 1)
+        #print(subset_index2)
+        #subset_index2 = subset_index.copy()
+        #subset_index2 = ordered_insert(subset_index2, candidate)     # guarantee subset_index always be sorted here
+        #actual_time_start = time.time()
         o_t = self.o_t_host(subset_index2)
+        #actual_finish_time = time.time()
         return (candidate, o_t, subset_index2)
 
 

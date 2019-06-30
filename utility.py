@@ -19,6 +19,8 @@ def ordered_insert(sensor_index, index):
         sensor_index (list)
         index (int)
     '''
+    #ii = np.searchsorted(sensor_index, index)
+    #a = np.insert(sensor_index, ii, index)
     size = len(sensor_index)
     for i in range(size):
         if index < sensor_index[i]:
