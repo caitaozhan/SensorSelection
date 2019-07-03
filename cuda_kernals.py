@@ -6,8 +6,7 @@ import math
 from numba import cuda, float64
 
 
-local_array_size = 100   # Global variables are treated as constants. Always initialize the largest size, i.e. the budget
-
+LOCAL_ARRAY_SIZE = 100   # Global variables are treated as constants. Always initialize the largest size, i.e. the budget
 
 @cuda.jit('float64(float64)', device=True)
 def q_function(x):
@@ -75,27 +74,33 @@ def matmul(A, B, C, size):
     return summation
 
 
-@cuda.jit('void(float64[:,:], int64[:], float64[:,:], float64, float64[:,:])')
-def o_t_approx_kernal(meanvec_array, subset_index, sub_cov_inv, priori, results):
-    '''The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
+@cuda.jit('float64(int64, int64, int64)', device=True)
+def distance_of_hypothesis(i, j, hypothesis_num):
+    '''Compute the euclidian distance between two hypothesis.
     Params:
-        meanvec_array (np 2D array): contains the mean vector of every transmitter
-        subset_index (np 1D array):  index of some sensors
-        cov_inv (np 2D array):       inverse of a covariance matrix
-        priori (float64):            the prior of each hypothesis
-        results (np 2D array):       save the results for each (i, j) pair of transmitter and sensor's error
+        i (int): i_{th} hypothesis
+        j (int): j_{th} hypothesis
+        hypothesis_num (int): the total number of hypothesis, equals to grid_len^2
     '''
-    i, j = cuda.grid(2)
-    if i < results.shape[0] and j < results.shape[1] and i != j:  # warning: in Linux simulator, need to consider case i ==j
-        pj_pi = cuda.local.array(local_array_size, dtype=float64)
-        tmp = cuda.local.array(local_array_size, dtype=float64)
-        set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
-        results[i, j] = q_function(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size))) * priori
+    grid_len = int(math.sqrt(float(hypothesis_num)))
+    i_x = i//grid_len
+    i_y = i%grid_len
+    j_x = j//grid_len
+    j_y = j%grid_len
+    return math.sqrt(float((i_x - j_x)**2 + (i_y - j_y)**2))
+
+
+@cuda.reduce
+def sum_reduce(a, b):
+    '''Reducing a 1D array to a single value
+    '''
+    return a + b
 
 
 @cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64, float64[:], float64[:])')
 def o_t_approx_kernal2(meanvec, dot_of_selected, candidate, covariance, priori, lookup_table, results):
-    '''The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
+    '''The improved version of o_t_approx_kernal
+       The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
     Params:
         meanvec (np 2D array):   contains the mean vector of every transmitter
         dot_of_selected (np 2D array): stores the np.dot(np.dot(pj_pi, sub_cov_inv), pj_pi)) of sensors already selected
@@ -131,44 +136,10 @@ def update_dot_of_selected_kernal(meanvec_array, dot_of_selected, best_candidate
         dot_of_selected[i, j] += dot_of_best_candidate
 
 
-@cuda.jit('float64(int64, int64, int64)', device=True)
-def distance_of_hypothesis(i, j, hypothesis_num):
-    '''Compute the euclidian distance between two hypothesis.
-    Params:
-        i (int): i_{th} hypothesis
-        j (int): j_{th} hypothesis
-        hypothesis_num (int): the total number of hypothesis, equals to grid_len^2
-    '''
-    grid_len = int(math.sqrt(float(hypothesis_num)))
-    i_x = i//grid_len
-    i_y = i%grid_len
-    j_x = j//grid_len
-    j_y = j%grid_len
-    return math.sqrt(float((i_x - j_x)**2 + (i_y - j_y)**2))
-
-
-@cuda.jit('void(float64[:,:], int64[:], float64[:,:], float64, float64[:,:])')
-def o_t_approx_dist_kernal(meanvec_array, subset_index, sub_cov_inv, priori, results):
-    '''The kernal for o_t_approx_dist with distance weight. Each thread executes a kernal, which is responsible for one element in results array.
-    Params:
-        meanvec_array (np 2D array): contains the mean vector of every transmitter
-        subset_index (np 1D array):  index of some sensors
-        cov_inv (np 2D array):       inverse of a covariance matrix
-        priori (float64):            the prior of each hypothesis
-        results (np 2D array):       save the all the results
-    '''
-    i, j = cuda.grid(2)
-    if i < results.shape[0] and j < results.shape[1] and i != j:  # warning: in Linux simulator, need to consider case i == j
-        pj_pi = cuda.local.array(local_array_size, dtype=float64)
-        tmp = cuda.local.array(local_array_size, dtype=float64)
-        set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
-        distance = distance_of_hypothesis(i, j, results.shape[0])
-        results[i, j] = distance * q_function(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size))) * priori
-
-
 @cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64, float64[:])')
 def o_t_approx_dist_kernal2(meanvec, dot_of_selected, candidate, covariance, priori, results):
-    '''The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
+    '''The improved version of o_t_approx_dist_kernal
+       The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
     Params:
         meanvec (np 2D array):   contains the mean vector of every transmitter
         dot_of_selected (np 2D array): stores the np.dot(np.dot(pj_pi, sub_cov_inv), pj_pi)) of sensors already selected
@@ -183,7 +154,7 @@ def o_t_approx_dist_kernal2(meanvec, dot_of_selected, candidate, covariance, pri
         if i == j:
             results[i*dot_of_selected.shape[0] + j] = 0
         else:
-            distance = distance_of_hypothesis(i, j, results.shape[0])
+            distance = distance_of_hypothesis(i, j, dot_of_selected.shape[0])
             dot_of_candidate = ((meanvec[j, candidate] - meanvec[i, candidate]) ** 2) / covariance[candidate, candidate]
             dot_of_new_subset = dot_of_selected[i, j] + dot_of_candidate
             results[i*dot_of_selected.shape[0] + j] = distance * q_function(0.5 * math.sqrt(dot_of_new_subset)) * priori
@@ -203,14 +174,14 @@ def o_t_kernal(meanvec_array, subset_index, sub_cov_inv, results):
         if i == j:
             results[i, j] = 1.
         else:
-            pj_pi = cuda.local.array(local_array_size, dtype=float64)
-            tmp = cuda.local.array(local_array_size, dtype=float64)
+            pj_pi = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+            tmp = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
             set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
             results[i, j] = (1 - q_function(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size))))
 
 
-@cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64, float64[:], float64[:, :])')
-def o_t_iter_kernal(meanvec, dot_of_selected, candidate, covariance, priori, lookup_table, results):
+@cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64[:], float64[:, :])')
+def o_t_iter_kernal(meanvec, dot_of_selected, candidate, covariance, lookup_table, results):
     '''The kernal for o_t_iter. The difference comparing with o_t_approx_kernal2 is the dimension of results
     Params:
         meanvec (np 2D array):   contains the mean vector of every transmitter
@@ -218,7 +189,6 @@ def o_t_iter_kernal(meanvec, dot_of_selected, candidate, covariance, priori, loo
                                        in previous iterations. shape=(m, m) where m is the number of hypothesis (grid_len^2)
         candidate (int):               a candidate sensor index
         covariance (np 2D array):      covariance matrix
-        priori (float64):              the prior of each hypothesis
         results (np 2D array):         save the results for each (i, j) pair of transmitter and sensor's error
     '''
     i, j = cuda.grid(2)
@@ -231,8 +201,43 @@ def o_t_iter_kernal(meanvec, dot_of_selected, candidate, covariance, priori, loo
             results[i, j] = (1 - q_function(0.5 * math.sqrt(dot_of_new_subset)))
 
 
-@cuda.reduce
-def sum_reduce(a, b):
-    '''Reducing a 1D array to a single value
+######## Legacy kernal ###############
+
+# replaced by o_t_approx_dist_kernal2
+@cuda.jit('void(float64[:,:], int64[:], float64[:,:], float64, float64[:,:])')
+def o_t_approx_dist_kernal(meanvec_array, subset_index, sub_cov_inv, priori, results):
+    '''The kernal for o_t_approx_dist with distance weight. Each thread executes a kernal, which is responsible for one element in results array.
+    Params:
+        meanvec_array (np 2D array): contains the mean vector of every transmitter
+        subset_index (np 1D array):  index of some sensors
+        cov_inv (np 2D array):       inverse of a covariance matrix
+        priori (float64):            the prior of each hypothesis
+        results (np 2D array):       save the all the results
     '''
-    return a + b
+    i, j = cuda.grid(2)
+    if i < results.shape[0] and j < results.shape[1] and i != j:  # warning: in Linux simulator, need to consider case i == j
+        pj_pi = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+        tmp = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+        set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
+        distance = distance_of_hypothesis(i, j, results.shape[0])
+        results[i, j] = distance * q_function(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size))) * priori
+
+
+
+# replaced by o_t_approx_kernal2
+@cuda.jit('void(float64[:,:], int64[:], float64[:,:], float64, float64[:,:])')
+def o_t_approx_kernal(meanvec_array, subset_index, sub_cov_inv, priori, results):
+    '''The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
+    Params:
+        meanvec_array (np 2D array): contains the mean vector of every transmitter
+        subset_index (np 1D array):  index of some sensors
+        cov_inv (np 2D array):       inverse of a covariance matrix
+        priori (float64):            the prior of each hypothesis
+        results (np 2D array):       save the results for each (i, j) pair of transmitter and sensor's error
+    '''
+    i, j = cuda.grid(2)
+    if i < results.shape[0] and j < results.shape[1] and i != j:  # warning: in Linux simulator, need to consider case i ==j
+        pj_pi = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+        tmp = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+        set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
+        results[i, j] = q_function(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size))) * priori

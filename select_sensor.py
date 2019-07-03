@@ -20,7 +20,7 @@ try:
     from numba import cuda
     from cuda_kernals import o_t_approx_kernal, o_t_kernal, o_t_approx_dist_kernal, \
                              o_t_approx_kernal2, o_t_approx_dist_kernal2, update_dot_of_selected_kernal, sum_reduce, \
-                             o_t_iter_kernal#, o_t_iter_dist_kernal
+                             o_t_iter_kernal, prod_reduce#, o_t_iter_dist_kernal
 except Exception as e:
     pass
 from itertools import combinations
@@ -888,7 +888,7 @@ class SelectSensor:
 
         return plot_data
 
-
+    # @profile
     def select_offline_GA_old(self, budget, cores):
         '''Using the Ot real during selection, not submodular, no proformance guarantee
         Args:
@@ -911,7 +911,7 @@ class SelectSensor:
             best_sensor = complement_index[best_candidate]
             maximum = all_candidate_ot[best_candidate]
             print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
-                cost+1, time.time()-start, best_candidate, self.sensors[best_candidate].x, self.sensors[best_candidate].y, maximum))
+                cost+1, time.time()-start, best_sensor, self.sensors[best_sensor].x, self.sensors[best_sensor].y, maximum))
 
             subset_index = np.append(subset_index, best_sensor)
             subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
@@ -925,6 +925,7 @@ class SelectSensor:
         return plot_data
 
 
+    # @profile
     def select_offline_GA(self, budget, cores, cuda_kernal):
         '''Using the Ot real during selection, not submodular, no proformance guarantee
         Args:
@@ -957,9 +958,9 @@ class SelectSensor:
             best_sensor = complement_index[best_candidate]
             maximum = candidate_results[best_candidate]
             print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
-                cost+1, time.time()-start, best_candidate, self.sensors[best_candidate].x, self.sensors[best_candidate].y, maximum))
+                cost+1, time.time()-start, best_sensor, self.sensors[best_sensor].x, self.sensors[best_sensor].y, maximum))
 
-            self.update_dot_of_selected_host(d_dot_of_selected, best_candidate, d_covariance, d_meanvec)
+            self.update_dot_of_selected_host(d_dot_of_selected, best_sensor, d_covariance, d_meanvec)
 
             subset_index = np.append(subset_index, best_sensor)
             subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
@@ -1675,6 +1676,7 @@ class SelectSensor:
         return np.sum(results.prod(axis=1)*self.grid_priori[0][0])
 
 
+    # @profile
     def o_t_host_iter(self, d_dot_of_selected, candidate, d_covariance, d_meanvec, d_results, cuda_kernal, d_lookup_table):
         '''Host code for o_t
            The iteration version of o_t_host. Iteration suggests the current iteration uses results from the previous iterations
@@ -1697,7 +1699,7 @@ class SelectSensor:
         blockspergrid_y = math.ceil(n_h/threadsperblock[1])
         blockspergrid = (blockspergrid_x, blockspergrid_y)
 
-        cuda_kernal[blockspergrid, threadsperblock](d_meanvec, d_dot_of_selected, candidate, d_covariance, self.grid_priori[0][0], d_lookup_table, d_results)
+        cuda_kernal[blockspergrid, threadsperblock](d_meanvec, d_dot_of_selected, candidate, d_covariance, d_lookup_table, d_results)
         
         results = d_results.copy_to_host()
         return np.sum(results.prod(axis=1)*self.grid_priori[0][0])

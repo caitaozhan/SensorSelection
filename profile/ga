@@ -1,0 +1,151 @@
+Start GA selection (homo)
+cost = 1, time = 1.1738543510437012, best = 37, (16, 3), o_t = 0.0067289951265484494
+cost = 2, time = 1.0155713558197021, best = 89, (11, 7), o_t = 0.061287873428942374
+cost = 3, time = 0.9358196258544922, best = 29, (17, 6), o_t = 0.1307401234685894
+cost = 4, time = 0.8909127712249756, best = 44, (17, 12), o_t = 0.19725981371369328
+cost = 5, time = 0.8676631450653076, best = 18, (33, 19), o_t = 0.24932262087962903
+cost = 6, time = 0.9222431182861328, best = 49, (1, 16), o_t = 0.32892080158361936
+cost = 7, time = 0.9129159450531006, best = 39, (4, 9), o_t = 0.42981572807762064
+cost = 8, time = 0.9810864925384521, best = 86, (1, 7), o_t = 0.5720250170688672
+cost = 9, time = 1.014486312866211, best = 35, (13, 26), o_t = 0.6898357040649391
+cost = 10, time = 1.113523244857788, best = 83, (0, 23), o_t = 0.7773499781759461
+cost = 11, time = 1.1874110698699951, best = 0, (8, 30), o_t = 0.8438694326510268
+cost = 12, time = 1.1353998184204102, best = 16, (4, 18), o_t = 0.8881861369628588
+cost = 13, time = 1.0793850421905518, best = 94, (8, 35), o_t = 0.9216021503641502
+cost = 14, time = 1.1807055473327637, best = 67, (27, 8), o_t = 0.9453799692672027
+cost = 15, time = 1.3029484748840332, best = 55, (21, 25), o_t = 0.9600895833613643
+cost = 16, time = 1.5160717964172363, best = 70, (33, 8), o_t = 0.9724216839731551
+cost = 17, time = 1.732086181640625, best = 4, (1, 32), o_t = 0.9804038742685994
+cost = 18, time = 2.0885660648345947, best = 8, (11, 34), o_t = 0.9866379218265329
+cost = 19, time = 2.277240514755249, best = 60, (24, 37), o_t = 0.9912410450580502
+cost = 20, time = 2.438781499862671, best = 92, (28, 11), o_t = 0.9936475023851037
+time =  25.76846957206726 
+ [[1, 0.0067289951265484494, array([37])], [2, 0.061287873428942374, array([37, 89])], [3, 0.1307401234685894, array([29, 37, 89])], [4, 0.19725981371369328, array([29, 37, 44, 89])], [5, 0.24932262087962903, array([18, 29, 37, 44, 89])], [6, 0.32892080158361936, array([29, 18, 37, 44, 49, 89])], [7, 0.42981572807762064, array([18, 29, 37, 39, 44, 49, 89])], [8, 0.5720250170688672, array([29, 18, 37, 39, 44, 49, 86, 89])], [9, 0.6898357040649391, array([18, 29, 35, 37, 39, 44, 49, 86, 89])], [10, 0.7773499781759461, array([29, 18, 35, 37, 39, 49, 44, 83, 86, 89])], [11, 0.8438694326510268, array([18,  0, 29, 39, 37, 35, 44, 49, 83, 86, 89])], [12, 0.8881861369628588, array([ 0, 16, 18, 37, 35, 29, 39, 44, 49, 83, 86, 89])], [13, 0.9216021503641502, array([16,  0, 18, 37, 35, 29, 39, 49, 44, 83, 86, 89, 94])], [14, 0.9453799692672027, array([ 0, 16, 18, 37, 35, 29, 39, 44, 49, 67, 83, 86, 89, 94])], [15, 0.9600895833613643, array([16,  0, 18, 37, 35, 29, 39, 44, 49, 55, 67, 83, 86, 89, 94])], [16, 0.9724216839731551, array([ 0, 16, 18, 37, 35, 29, 39, 44, 55, 49, 67, 70, 83, 86, 89, 94])], [17, 0.9804038742685994, array([ 0,  4, 37, 18, 35, 29, 39, 44, 16, 49, 55, 67, 70, 83, 86, 89, 94])], [18, 0.9866379218265329, array([ 4,  0,  8, 16, 18, 39, 29, 44, 37, 49, 35, 55, 67, 70, 83, 86, 89,
+       94])], [19, 0.9912410450580502, array([35,  4,  8, 16, 18, 39, 29, 44, 37,  0, 49, 55, 60, 67, 70, 83, 86,
+       89, 94])], [20, 0.9936475023851037, array([29,  0,  8, 16, 18,  4, 35, 37, 44, 39, 49, 55, 60, 67, 83, 70, 86,
+       89, 92, 94])]]
+Start GA selection (homo)
+cost = 1, time = 0.9282448291778564, best = 37, (16, 3), o_t = 0.0067289951265484494
+cost = 2, time = 0.8212780952453613, best = 89, (11, 7), o_t = 0.061287873428942374
+cost = 3, time = 0.7411775588989258, best = 29, (17, 6), o_t = 0.1307401234685894
+cost = 4, time = 0.6796255111694336, best = 44, (17, 12), o_t = 0.19725981371369328
+cost = 5, time = 0.6299805641174316, best = 18, (33, 19), o_t = 0.24932262087962903
+cost = 6, time = 0.6166338920593262, best = 49, (1, 16), o_t = 0.32892080158361936
+cost = 7, time = 0.6262044906616211, best = 39, (4, 9), o_t = 0.42981572807762064
+cost = 8, time = 0.6084949970245361, best = 86, (1, 7), o_t = 0.5720250170688672
+cost = 9, time = 0.5786445140838623, best = 35, (13, 26), o_t = 0.6898357040649391
+cost = 10, time = 0.5694847106933594, best = 83, (0, 23), o_t = 0.7773499781759461
+cost = 11, time = 0.5705196857452393, best = 0, (8, 30), o_t = 0.8438694326510268
+cost = 12, time = 0.5685558319091797, best = 16, (4, 18), o_t = 0.8881861369628588
+cost = 13, time = 0.5740365982055664, best = 94, (8, 35), o_t = 0.9216021503641502
+cost = 14, time = 0.575969934463501, best = 67, (27, 8), o_t = 0.9453799692672027
+cost = 15, time = 0.5460257530212402, best = 55, (21, 25), o_t = 0.9600895833613643
+cost = 16, time = 0.5939438343048096, best = 70, (33, 8), o_t = 0.9724216839731551
+cost = 17, time = 0.5576374530792236, best = 4, (1, 32), o_t = 0.9804038742685994
+cost = 18, time = 0.5184295177459717, best = 8, (11, 34), o_t = 0.9866379218265329
+cost = 19, time = 0.5104701519012451, best = 60, (24, 37), o_t = 0.9912410450580502
+cost = 20, time = 0.5165722370147705, best = 92, (28, 11), o_t = 0.9936475023851037
+time =  12.34382176399231 
+ [[1, 0.0067289951265484494, array([37])], [2, 0.061287873428942374, array([37, 89])], [3, 0.1307401234685894, array([29, 37, 89])], [4, 0.19725981371369328, array([29, 37, 44, 89])], [5, 0.24932262087962903, array([18, 29, 37, 44, 89])], [6, 0.32892080158361936, array([29, 18, 37, 44, 49, 89])], [7, 0.42981572807762064, array([18, 29, 37, 39, 44, 49, 89])], [8, 0.5720250170688672, array([29, 18, 37, 39, 44, 49, 86, 89])], [9, 0.6898357040649391, array([18, 29, 35, 37, 39, 44, 49, 86, 89])], [10, 0.7773499781759461, array([29, 18, 35, 37, 39, 49, 44, 83, 86, 89])], [11, 0.8438694326510268, array([18,  0, 29, 39, 37, 35, 44, 49, 83, 86, 89])], [12, 0.8881861369628588, array([ 0, 16, 18, 37, 35, 29, 39, 44, 49, 83, 86, 89])], [13, 0.9216021503641502, array([16,  0, 18, 37, 35, 29, 39, 49, 44, 83, 86, 89, 94])], [14, 0.9453799692672027, array([ 0, 16, 18, 37, 35, 29, 39, 44, 49, 67, 83, 86, 89, 94])], [15, 0.9600895833613643, array([16,  0, 18, 37, 35, 29, 39, 44, 49, 55, 67, 83, 86, 89, 94])], [16, 0.9724216839731551, array([ 0, 16, 18, 37, 35, 29, 39, 44, 55, 49, 67, 70, 83, 86, 89, 94])], [17, 0.9804038742685994, array([ 0,  4, 37, 18, 35, 29, 39, 44, 16, 49, 55, 67, 70, 83, 86, 89, 94])], [18, 0.9866379218265329, array([ 4,  0,  8, 16, 18, 39, 29, 44, 37, 49, 35, 55, 67, 70, 83, 86, 89,
+       94])], [19, 0.9912410450580502, array([35,  4,  8, 16, 18, 39, 29, 44, 37,  0, 49, 55, 60, 67, 70, 83, 86,
+       89, 94])], [20, 0.9936475023851037, array([29,  0,  8, 16, 18,  4, 35, 37, 44, 39, 49, 55, 60, 67, 83, 70, 86,
+       89, 92, 94])]]
+Wrote profile results to test_selection.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 25.7682 s
+File: /home/caitao/Project/SensorSelect/select_sensor.py
+Function: select_offline_GA_old at line 891
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   891                                               @profile
+   892                                               def select_offline_GA_old(self, budget, cores):
+   893                                                   '''Using the Ot real during selection, not submodular, no proformance guarantee
+   894                                                   Args:
+   895                                                       budget (int): budget constraint
+   896                                                       cores (int): number of cores for parallelzation
+   897                                                   Return:
+   898                                                       (list): an element is [str, int, float],
+   899                                                               where str is the list of subset_index, int is # of sensors, float is O_T
+   900                                                   '''
+   901         1         10.0     10.0      0.0          print('Start GA selection (homo)')
+   902         1          1.0      1.0      0.0          plot_data = []
+   903         1          1.0      1.0      0.0          cost = 0                                            # |T| in the paper
+   904         1          4.0      4.0      0.0          subset_index = np.array([])                         # T   in the paper
+   905         1         20.0     20.0      0.0          complement_index = np.array([i for i in range(self.sen_num)]).astype(int) # S\T in the paper
+   906        21         17.0      0.8      0.0          while cost < budget and len(complement_index) > 0:
+   907        20         20.0      1.0      0.0              start = time.time()
+   908        20   25765581.0 1288279.1    100.0              candidate_results = [self.inner_greedy_real(subset_index, candidate) for candidate in complement_index]
+   909        20        371.0     18.6      0.0              all_candidate_ot = [cr[1] for cr in candidate_results]
+   910        20        483.0     24.1      0.0              best_candidate = np.argmax(all_candidate_ot)
+   911        20         30.0      1.5      0.0              best_sensor = complement_index[best_candidate]
+   912        20         13.0      0.7      0.0              maximum = all_candidate_ot[best_candidate]
+   913        20         22.0      1.1      0.0              print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
+   914        20        357.0     17.9      0.0                  cost+1, time.time()-start, best_sensor, self.sensors[best_sensor].x, self.sensors[best_sensor].y, maximum))
+   915                                           
+   916        20        247.0     12.3      0.0              subset_index = np.append(subset_index, best_sensor)
+   917        20        314.0     15.7      0.0              subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
+   918        20        594.0     29.7      0.0              complement_index = np.delete(complement_index, best_candidate)
+   919        20         19.0      0.9      0.0              cost += 1
+   920        20         25.0      1.2      0.0              plot_data.append([len(subset_index), maximum, subset_index])
+   921                                           
+   922        20         47.0      2.4      0.0              if maximum > 0.999999999:
+   923                                                           break
+   924                                           
+   925         1          1.0      1.0      0.0          return plot_data
+
+Total time: 12.3422 s
+File: /home/caitao/Project/SensorSelect/select_sensor.py
+Function: select_offline_GA at line 928
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   928                                               @profile
+   929                                               def select_offline_GA(self, budget, cores, cuda_kernal):
+   930                                                   '''Using the Ot real during selection, not submodular, no proformance guarantee
+   931                                                   Args:
+   932                                                       budget (int): budget constraint
+   933                                                       cores (int): number of cores for parallelzation
+   934                                                   Return:
+   935                                                       (list): an element is [str, int, float],
+   936                                                               where str is the list of subset_index, int is # of sensors, float is O_T
+   937                                                   '''
+   938         1          2.0      2.0      0.0          print('Start GA selection (homo)')
+   939         1          1.0      1.0      0.0          plot_data = []
+   940         1          1.0      1.0      0.0          cost = 0                                              # |T| in the paper
+   941         1          1.0      1.0      0.0          subset_index = []                                     # T   in the paper
+   942         1          9.0      9.0      0.0          complement_index = [i for i in range(self.sen_num)]   # S\T in the paper
+   943         1          1.0      1.0      0.0          n_h = len(self.transmitters)
+   944         1        631.0    631.0      0.0          dot_of_selected   = np.zeros((n_h, n_h))
+   945         1       2645.0   2645.0      0.0          d_dot_of_selected = cuda.to_device(dot_of_selected)
+   946         1        528.0    528.0      0.0          d_covariance      = cuda.to_device(self.covariance)
+   947         1        593.0    593.0      0.0          d_meanvec         = cuda.to_device(self.meanvec_array)
+   948         1        197.0    197.0      0.0          d_results         = cuda.device_array((n_h, n_h), np.float64)
+   949         1        548.0    548.0      0.0          d_lookup_table    = cuda.to_device(self.lookup_table_q)
+   950                                           
+   951        21         21.0      1.0      0.0          while cost < budget and len(complement_index) > 0:
+   952        20         23.0      1.1      0.0              start = time.time()
+   953                                           
+   954        20         19.0      0.9      0.0              candidate_results = [self.o_t_host_iter(d_dot_of_selected, candidate, d_covariance, d_meanvec, d_results, cuda_kernal, d_lookup_table)
+   955        20   12331174.0 616558.7     99.9                                   for candidate in complement_index]
+   956                                                   
+   957        20        481.0     24.1      0.0              best_candidate = np.argmax(candidate_results)
+   958        20         32.0      1.6      0.0              best_sensor = complement_index[best_candidate]
+   959        20         18.0      0.9      0.0              maximum = candidate_results[best_candidate]
+   960        20         21.0      1.1      0.0              print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
+   961        20        298.0     14.9      0.0                  cost+1, time.time()-start, best_sensor, self.sensors[best_sensor].x, self.sensors[best_sensor].y, maximum))
+   962                                           
+   963        20       3726.0    186.3      0.0              self.update_dot_of_selected_host(d_dot_of_selected, best_sensor, d_covariance, d_meanvec)
+   964                                           
+   965        20        327.0     16.4      0.0              subset_index = np.append(subset_index, best_sensor)
+   966        20        234.0     11.7      0.0              subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
+   967        20        561.0     28.1      0.0              complement_index = np.delete(complement_index, best_candidate)
+   968        20         18.0      0.9      0.0              cost += 1
+   969        20         21.0      1.1      0.0              plot_data.append([len(subset_index), maximum, subset_index])
+   970                                           
+   971        20         33.0      1.6      0.0              if maximum > 0.999999999:
+   972                                                           break
+   973                                           
+   974         1          1.0      1.0      0.0          return plot_data
+

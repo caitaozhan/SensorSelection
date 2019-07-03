@@ -80,13 +80,15 @@ def test_splat(large=True, type_of_transmitter=ONLY_INTRUDERS):
             selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
             selectsensor.rescale_intruder_hypothesis()
             selectsensor.transmitters_to_array()
+            
             # results_AGA = selectsensor.select_offline_greedy_lazy_gpu(30, 12, o_t_approx_kernal2)
-            # start = time.time()
-            results_GA  = selectsensor.select_offline_GA_old(20, 12)
+
+            start = time.time()
+            results_GA  = selectsensor.select_offline_GA_old(40, 12)
             print('time = ', time.time()-start, '\n', results_GA)
             
             start = time.time()
-            results_GA  = selectsensor.select_offline_GA(20, 12, o_t_iter_kernal)
+            results_GA  = selectsensor.select_offline_GA(40, 12, o_t_iter_kernal)
             print('time = ', time.time()-start, '\n', results_GA)
             
             # plots.save_data_AGA(results, 'plot_data_splat/fig1-homo/AGA')
@@ -224,30 +226,32 @@ def test_splat_opt():
     sensor_file         = 'dataSplat/100/sensors{}'
     intruder_hypo_file  = 'dataSplat/100/hypothesis{}'
 
-    for i in range(1, 11):
+    for i in range(1, 2):
         print('\ncase {}'.format(i))
         selectsensor = SelectSensor(10)
         selectsensor.init_data(cov_file.format(i), sensor_file.format(i), intruder_hypo_file.format(i))
         selectsensor.rescale_intruder_hypothesis()
         selectsensor.transmitters_to_array()        # for GPU
 
-        results = selectsensor.select_offline_greedy_lazy_gpu(10, 12, o_t_approx_kernal2)
-        plots.save_data_AGA(results, 'plot_data_splat/fig2-homo-small/AGA{}'.format(i))
+        # results = selectsensor.select_offline_greedy_lazy_gpu(10, 12, o_t_approx_kernal2)
+        # plots.save_data_AGA(results, 'plot_data_splat/fig2-homo-small/AGA{}'.format(i))
 
         results = selectsensor.select_offline_GA_old(10, 10)
         plots.save_data(results, 'plot_data_splat/fig2-homo-small/GA{}'.format(i))
 
+        # results = selectsensor.select_offline_GA(10, 10, o_t_iter_kernal)
+        
         #results = selectsensor.select_offline_coverage(10, 10)
         #plots.save_data(results, 'plot_data_splat/fig2-homo-small/coverage{}'.format(i))
 
         #results = selectsensor.select_offline_random(10, 10)
         #plots.save_data(results, 'plot_data_splat/fig2-homo-small/random{}'.format(i))
 
-        plot_data = []
-        for budget in range(1, 11):
-            budget, ot = selectsensor.select_offline_optimal(budget, 12)
-            plot_data.append([budget, ot])
-        plots.save_data(plot_data,'plot_data_splat/fig2-homo-small/optimal{}'.format(i))
+        # plot_data = []
+        # for budget in range(1, 11):
+        #     budget, ot = selectsensor.select_offline_optimal(budget, 12)
+        #     plot_data.append([budget, ot])
+        # plots.save_data(plot_data,'plot_data_splat/fig2-homo-small/optimal{}'.format(i))
 
 
 def test_splat_total_sensors():
@@ -393,6 +397,6 @@ if __name__ == '__main__':
     #test_splat(False, 3)
     #test_splat_opt()
     # test_splat_baseline(LARGE_INSTANCE, BASELINE_ALL)
-    #test_splat_opt()
+    # test_splat_opt()
     #test_splat_total_sensors()
     #test_splat_hetero(0)
