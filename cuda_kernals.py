@@ -209,6 +209,28 @@ def o_t_kernal(meanvec_array, subset_index, sub_cov_inv, results):
             results[i, j] = (1 - q_function(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size))))
 
 
+@cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64, float64[:], float64[:, :])')
+def o_t_iter_kernal(meanvec, dot_of_selected, candidate, covariance, priori, lookup_table, results):
+    '''The kernal for o_t_iter. The difference comparing with o_t_approx_kernal2 is the dimension of results
+    Params:
+        meanvec (np 2D array):   contains the mean vector of every transmitter
+        dot_of_selected (np 2D array): stores the np.dot(np.dot(pj_pi, sub_cov_inv), pj_pi)) of sensors already selected
+                                       in previous iterations. shape=(m, m) where m is the number of hypothesis (grid_len^2)
+        candidate (int):               a candidate sensor index
+        covariance (np 2D array):      covariance matrix
+        priori (float64):              the prior of each hypothesis
+        results (np 2D array):         save the results for each (i, j) pair of transmitter and sensor's error
+    '''
+    i, j = cuda.grid(2)
+    if i < dot_of_selected.shape[0] and j < dot_of_selected.shape[1]:
+        if i == j:
+            results[i, j] = 1.
+        else:
+            dot_of_candidate = ((meanvec[j, candidate] - meanvec[i, candidate]) ** 2) / covariance[candidate, candidate]
+            dot_of_new_subset = dot_of_selected[i, j] + dot_of_candidate
+            results[i, j] = (1 - q_function(0.5 * math.sqrt(dot_of_new_subset)))
+
+
 @cuda.reduce
 def sum_reduce(a, b):
     '''Reducing a 1D array to a single value

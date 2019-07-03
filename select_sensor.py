@@ -19,7 +19,8 @@ from counter import Counter
 try:
     from numba import cuda
     from cuda_kernals import o_t_approx_kernal, o_t_kernal, o_t_approx_dist_kernal, \
-                         o_t_approx_kernal2, o_t_approx_dist_kernal2, update_dot_of_selected_kernal, sum_reduce
+                             o_t_approx_kernal2, o_t_approx_dist_kernal2, update_dot_of_selected_kernal, sum_reduce, \
+                             o_t_iter_kernal#, o_t_iter_dist_kernal
 except Exception as e:
     pass
 from itertools import combinations
@@ -93,9 +94,7 @@ class SelectSensor:
         '''
         cov = pd.read_csv(cov_file, header=None, delimiter=' ')
         del cov[len(cov)]
-        #self.covariance = cov.values
-        self.covariance = np.zeros(cov.values.shape)
-        np.fill_diagonal(self.covariance, 1.)  # std=1 for every sensor NOTE: need to modify three places
+        self.covariance = cov.values
 
         self.sensors = []
         with open(sensor_file, 'r') as f:
@@ -105,7 +104,7 @@ class SelectSensor:
             for line in lines:
                 line = line.split(' ')
                 x, y, std, cost = int(line[0]), int(line[1]), float(line[2]), float(line[3])
-                self.sensors.append(Sensor(x, y, 1, cost, gain_up_bound=max_gain, index=index))  # uniform sensors
+                self.sensors.append(Sensor(x, y, std, cost, gain_up_bound=max_gain, index=index))  # uniform sensors
                 index += 1
         self.sen_num = len(self.sensors)
 
@@ -120,7 +119,7 @@ class SelectSensor:
                 #sen_x, sen_y = int(line[2]), int(line[3])
                 mean, std = float(line[4]), float(line[5])
                 self.means[tran_x*self.grid_len + tran_y, count] = mean  # count equals to the index of the sensors
-                self.stds[tran_x*self.grid_len + tran_y, count] = 1      # std = 1 for every sensor
+                self.stds[tran_x*self.grid_len + tran_y, count] = std
                 count = (count + 1) % len(self.sensors)
 
         #temp_mean = np.zeros(self.grid_len * self.grid_len, )
@@ -890,7 +889,7 @@ class SelectSensor:
         return plot_data
 
 
-    def select_offline_GA(self, budget, cores):
+    def select_offline_GA_old(self, budget, cores):
         '''Using the Ot real during selection, not submodular, no proformance guarantee
         Args:
             budget (int): budget constraint
@@ -906,36 +905,65 @@ class SelectSensor:
         complement_index = np.array([i for i in range(self.sen_num)]).astype(int) # S\T in the paper
         while cost < budget and len(complement_index) > 0:
             start = time.time()
-            #candidate_results = Parallel(n_jobs=cores, max_nbytes=None)(delayed(self.inner_greedy_real)(subset_index, candidate) for candidate in complement_index)
             candidate_results = [self.inner_greedy_real(subset_index, candidate) for candidate in complement_index]
-            #print(candidate_results)
             all_candidate_ot = [cr[1] for cr in candidate_results]
-            #print(all_candidate_ot)
             best_candidate = np.argmax(all_candidate_ot)
-            #best_candidate = candidate_results[best_candidate][0]
             best_sensor = complement_index[best_candidate]
             maximum = all_candidate_ot[best_candidate]
-            # best_candidate = int(candidate_results[0][0])   # an element of candidate_results is a tuple - (int, float, list)
-            # maximum = candidate_results[0][1]          # where int is the candidate, float is the O_T, list is the subset_list with new candidate
-            # for candidate in candidate_results:
-            #     if candidate[1] > maximum:
-            #         best_candidate = int(candidate[0])
-            #         maximum = candidate[1]
-
-            #print(best_candidate)
             print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
                 cost+1, time.time()-start, best_candidate, self.sensors[best_candidate].x, self.sensors[best_candidate].y, maximum))
 
-            inner_start_time = time.time()
             subset_index = np.append(subset_index, best_sensor)
             subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
-            #ordered_insert(subset_index, best_candidate)    # guarantee subset_index always be sorted here
-
-            #best_candidate_index = np.where(complement_index == best_sensor)
             complement_index = np.delete(complement_index, best_candidate)
-            #print(best_candidate, subset_index, complement_index, inner_finish_time - inner_start_time)
-            #complement_index.remove(best_candidate)
-            print(cost)
+            cost += 1
+            plot_data.append([len(subset_index), maximum, subset_index])
+
+            if maximum > 0.999999999:
+                break
+
+        return plot_data
+
+
+    def select_offline_GA(self, budget, cores, cuda_kernal):
+        '''Using the Ot real during selection, not submodular, no proformance guarantee
+        Args:
+            budget (int): budget constraint
+            cores (int): number of cores for parallelzation
+        Return:
+            (list): an element is [str, int, float],
+                    where str is the list of subset_index, int is # of sensors, float is O_T
+        '''
+        print('Start GA selection (homo)')
+        plot_data = []
+        cost = 0                                              # |T| in the paper
+        subset_index = []                                     # T   in the paper
+        complement_index = [i for i in range(self.sen_num)]   # S\T in the paper
+        n_h = len(self.transmitters)
+        dot_of_selected   = np.zeros((n_h, n_h))
+        d_dot_of_selected = cuda.to_device(dot_of_selected)
+        d_covariance      = cuda.to_device(self.covariance)
+        d_meanvec         = cuda.to_device(self.meanvec_array)
+        d_results         = cuda.device_array((n_h, n_h), np.float64)
+        d_lookup_table    = cuda.to_device(self.lookup_table_q)
+
+        while cost < budget and len(complement_index) > 0:
+            start = time.time()
+
+            candidate_results = [self.o_t_host_iter(d_dot_of_selected, candidate, d_covariance, d_meanvec, d_results, cuda_kernal, d_lookup_table)
+                                 for candidate in complement_index]
+        
+            best_candidate = np.argmax(candidate_results)
+            best_sensor = complement_index[best_candidate]
+            maximum = candidate_results[best_candidate]
+            print('cost = {}, time = {}, best = {}, ({}, {}), o_t = {}'.format(\
+                cost+1, time.time()-start, best_candidate, self.sensors[best_candidate].x, self.sensors[best_candidate].y, maximum))
+
+            self.update_dot_of_selected_host(d_dot_of_selected, best_candidate, d_covariance, d_meanvec)
+
+            subset_index = np.append(subset_index, best_sensor)
+            subset_index = np.partition(subset_index, len(subset_index) - 1).astype(int)
+            complement_index = np.delete(complement_index, best_candidate)
             cost += 1
             plot_data.append([len(subset_index), maximum, subset_index])
 
@@ -1584,7 +1612,7 @@ class SelectSensor:
             candidate (int)         : a candidate sensor index
             d_covariance (TYPE)     : covariance matrix
             d_meanvec (TYPE)        : contains the mean vector of every transmitter
-            d_results (TYPE)        : save the results for each (i, j) pair of transmitter and sensor's error
+            d_results (TYPE)        : 1D array. save the results for each (i, j) pair of transmitter and sensor's error
             cuda_kernal (cuda_kernals.o_t_approx_kernal2 or o_t_approx_dist_kernal2)
             d_lookup_table (TYPE)   : trade space for time
         Return:
@@ -1643,6 +1671,34 @@ class SelectSensor:
 
         o_t_kernal[blockspergrid, threadsperblock](d_meanvec_array, d_subset_index, d_sub_cov_inv, d_results)
 
+        results = d_results.copy_to_host()
+        return np.sum(results.prod(axis=1)*self.grid_priori[0][0])
+
+
+    def o_t_host_iter(self, d_dot_of_selected, candidate, d_covariance, d_meanvec, d_results, cuda_kernal, d_lookup_table):
+        '''Host code for o_t
+           The iteration version of o_t_host. Iteration suggests the current iteration uses results from the previous iterations
+           When iteration technique is used, O(B^2) time is reduced to O(1). Same iteration idea is used in o_t_approx_host.
+            TYPE = "numba.cuda.cudadrv.devicearray.DeviceNDArray", which cannot be pickled --> cannot exist before using joblib
+        Args:
+            d_dot_of_selected (TYPE): stores the np.dot(np.dot(pj_pi, sub_cov_inv), pj_pi)) of sensors already selected
+                                      in previous iterations. shape=(m, m) where m is the number of hypothesis (grid_len^2)
+            candidate (int)         : a candidate sensor index
+            d_covariance (TYPE)     : covariance matrix
+            d_meanvec (TYPE)        : contains the mean vector of every transmitter
+            d_results (TYPE)        : 2D array. save the results for each (i, j) pair of transmitter and sensor's error
+            cuda_kernal (cuda_kernals.o_t_approx_kernal2 or o_t_approx_dist_kernal2)
+            d_lookup_table (TYPE)   : trade space for time
+
+        '''
+        n_h = len(self.transmitters)
+        threadsperblock = (self.TPB, self.TPB)
+        blockspergrid_x = math.ceil(n_h/threadsperblock[0])
+        blockspergrid_y = math.ceil(n_h/threadsperblock[1])
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+        cuda_kernal[blockspergrid, threadsperblock](d_meanvec, d_dot_of_selected, candidate, d_covariance, self.grid_priori[0][0], d_lookup_table, d_results)
+        
         results = d_results.copy_to_host()
         return np.sum(results.prod(axis=1)*self.grid_priori[0][0])
 

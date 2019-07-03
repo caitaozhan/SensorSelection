@@ -4,9 +4,10 @@
 from select_sensor import SelectSensor
 try:
     from cuda_kernals import o_t_approx_kernal, o_t_kernal, o_t_approx_dist_kernal, \
-                             o_t_approx_kernal2, o_t_approx_dist_kernal2
-except Exception:
-    pass
+                             o_t_approx_kernal2, o_t_approx_dist_kernal2, \
+                             o_t_iter_kernal
+except Exception as e:
+    print(e)
 import time
 import plots
 import numpy as np
@@ -59,21 +60,6 @@ def test_ipsn_hetero():
     selectsensor.select_offline_greedy_hetero(5, 12, o_t_approx_kernal2)
 
 
-def test_utah():
-    '''2019 Mobicom version
-    '''
-    selectsensor = SelectSensor('config/utah_config.json')
-    selectsensor.init_data('dataUtah/cov', 'dataUtah/sensors', 'dataUtah/hypothesis')
-    #selectsensor.init_utah_legal_transmiters()                       # turn some sensors into legal transmitters
-    #selectsensor.update_utah_settings('dataUtah/sensors_update')     # update the settings: priori and sensor list
-    #selectsensor.add_legal_and_intruder_hypothesis('dataUtah/hypothesis_legal', 'dataUtah/hypothesis', 'dataUtah/hypothesis_add') # add the hypothesis of legal tansmitters and intruder
-    #selectsensor.init_data('dataUtah/cov', 'dataUtah/sensors_update', 'dataUtah/hypothesis_add')  # init again using new sensors and new hypothesis
-    #selectsensor.rescale_hypothesis_add()
-    selectsensor.select_offline_greedy_p_lazy_cpu(5, 4)
-    #selectsensor.locate_intruder_accuracy()
-    #plots.figure_1a(selectsensor, None)
-
-
 #@profile
 def test_splat(large=True, type_of_transmitter=ONLY_INTRUDERS):
     '''2019 Mobicom version using data generated from SPLAT
@@ -85,7 +71,7 @@ def test_splat(large=True, type_of_transmitter=ONLY_INTRUDERS):
         config              = 'config/splat_config_40.json'
         cov_file            = 'dataSplat/1600-100/cov'
         sensor_file         = 'dataSplat/1600-100/sensors'
-        intruder_hypo_file  = 'dataSplat/1600-100/hypothesis-25'
+        intruder_hypo_file  = 'dataSplat/1600-100/hypothesis'
         primary_hypo_file   = 'dataSplat/1600-100/hypothesis_primary'
         secondary_hypo_file = 'dataSplat/1600-100/hypothesis_secondary'
 
@@ -94,10 +80,19 @@ def test_splat(large=True, type_of_transmitter=ONLY_INTRUDERS):
             selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
             selectsensor.rescale_intruder_hypothesis()
             selectsensor.transmitters_to_array()
-            results = selectsensor.select_offline_greedy_lazy_gpu(50, 12, o_t_approx_kernal2)
-            plots.save_data_AGA(results, 'plot_data_splat/fig1-homo/AGA')
-            for r in results:
-                print(r)
+            # results_AGA = selectsensor.select_offline_greedy_lazy_gpu(30, 12, o_t_approx_kernal2)
+            # start = time.time()
+            results_GA  = selectsensor.select_offline_GA_old(20, 12)
+            print('time = ', time.time()-start, '\n', results_GA)
+            
+            start = time.time()
+            results_GA  = selectsensor.select_offline_GA(20, 12, o_t_iter_kernal)
+            print('time = ', time.time()-start, '\n', results_GA)
+            
+            # plots.save_data_AGA(results, 'plot_data_splat/fig1-homo/AGA')
+            # for aga, ga in zip(results_AGA, results_GA):
+            #     print(aga, ga)
+
         if type_of_transmitter == PRIMARY_SECONDARY_INTRUDERS:      # the complete process: intruder --> primary --> secondary
             selectsensor = SelectSensor(40)
             selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)                # init intruder hypo
@@ -132,17 +127,17 @@ def test_splat(large=True, type_of_transmitter=ONLY_INTRUDERS):
             selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
             selectsensor.rescale_intruder_hypothesis()
             selectsensor.transmitters_to_array()
-            results_AGA = selectsensor.select_offline_greedy_lazy_gpu(20, 20, o_t_approx_kernal2)
-            #results_GA = selectsensor.select_offline_GA(20, 20)
-            results_COV = selectsensor.select_offline_coverage(20, 20)
-            results_RAN = selectsensor.select_offline_random(20, 20)
+            results_AGA = selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2)
+            results_GA = selectsensor.select_offline_GA_old(20, 20)
+            # results_COV = selectsensor.select_offline_coverage(20, 12)
+            # results_RAN = selectsensor.select_offline_random(20, 12)
             #plots.save_data(results_AGA, 'plot_data_splat/fig2-homo-small/coverage{}'.format(i))
             #plots.save_data(results_GA, 'plot_data_splat/fig2-homo-small/random{}'.format(i))
             #plots.save_data(results_COV, 'plot_data_splat/fig2-homo-small/random{}'.format(i))
             #plots.save_data(results_RAN, 'plot_data_splat/fig2-homo-small/GA{}'.format(i))
 
             for j in range(len(results_AGA)):
-                print(results_AGA[j], results_COV[j], results_RAN[j])
+                print(results_AGA[j], results_GA[j])#, results_COV[j], results_RAN[j])
 
         if type_of_transmitter == PRIMARY_SECONDARY_INTRUDERS:      # the complete process
             selectsensor = SelectSensor(config)
@@ -198,7 +193,7 @@ def test_splat_baseline(large, algorithms):
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:  # GA
         selectsensor.transmitters_to_array()
-        results_GA = selectsensor.select_offline_GA(budget, 20)
+        results_GA = selectsensor.select_offline_GA_old(budget, 20)
         plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
@@ -239,7 +234,7 @@ def test_splat_opt():
         results = selectsensor.select_offline_greedy_lazy_gpu(10, 12, o_t_approx_kernal2)
         plots.save_data_AGA(results, 'plot_data_splat/fig2-homo-small/AGA{}'.format(i))
 
-        results = selectsensor.select_offline_GA(10, 10)
+        results = selectsensor.select_offline_GA_old(10, 10)
         plots.save_data(results, 'plot_data_splat/fig2-homo-small/GA{}'.format(i))
 
         #results = selectsensor.select_offline_coverage(10, 10)
@@ -385,19 +380,19 @@ def test_splat_localization_single_intruder():
 
 if __name__ == '__main__':
     #test_map()
-    #ipsn_homo()
+    # ipsn_homo()
     #test_ipsn_hetero()
     #test_splat(LARGE_INSTANCE, ONLY_INTRUDERS)
-    #test_splat(SMALL_INSTANCE, ONLY_INTRUDERS)
+    test_splat(SMALL_INSTANCE, ONLY_INTRUDERS)
     #test_splat(False, 2)
     #test_splat(False, 3)
-    #test_splat(True, 1)
+    # test_splat(True, 1)
     #test_splat(True, 2)
     #test_splat_localization_single_intruder()
     #select_online_random(self, budget, cores, true_index=-1)
     #test_splat(False, 3)
     #test_splat_opt()
-    test_splat_baseline(LARGE_INSTANCE, BASELINE_ALL)
+    # test_splat_baseline(LARGE_INSTANCE, BASELINE_ALL)
     #test_splat_opt()
     #test_splat_total_sensors()
     #test_splat_hetero(0)
