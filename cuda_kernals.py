@@ -119,7 +119,6 @@ def o_t_approx_kernal2(meanvec, dot_of_selected, candidate, covariance, priori, 
             dot_of_new_subset = dot_of_selected[i, j] + dot_of_candidate
             results[i*dot_of_selected.shape[0] + j] = q_lookup(0.5 * math.sqrt(dot_of_new_subset), lookup_table) * priori
 
-
 @cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:])')
 def update_dot_of_selected_kernal(meanvec_array, dot_of_selected, best_candidate, covariance):
     '''The kernal for update_dot_of_selected. Each thread executes a kernal, which is responsible for one element (a dot here) in dot_of_selected
@@ -136,8 +135,8 @@ def update_dot_of_selected_kernal(meanvec_array, dot_of_selected, best_candidate
         dot_of_selected[i, j] += dot_of_best_candidate
 
 
-@cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64, float64[:])')
-def o_t_approx_dist_kernal2(meanvec, dot_of_selected, candidate, covariance, priori, results):
+@cuda.jit('void(float64[:,:], float64[:,:], int64, float64[:,:], float64, float64[:], float64[:])')
+def o_t_approx_dist_kernal2(meanvec, dot_of_selected, candidate, covariance, priori, lookup_table, results):
     '''The improved version of o_t_approx_dist_kernal
        The kernal for o_t_approx. Each thread executes a kernal, which is responsible for one element in results array.
     Params:
@@ -157,11 +156,11 @@ def o_t_approx_dist_kernal2(meanvec, dot_of_selected, candidate, covariance, pri
             distance = distance_of_hypothesis(i, j, dot_of_selected.shape[0])
             dot_of_candidate = ((meanvec[j, candidate] - meanvec[i, candidate]) ** 2) / covariance[candidate, candidate]
             dot_of_new_subset = dot_of_selected[i, j] + dot_of_candidate
-            results[i*dot_of_selected.shape[0] + j] = distance * q_function(0.5 * math.sqrt(dot_of_new_subset)) * priori
+            results[i*dot_of_selected.shape[0] + j] = distance * q_lookup(0.5 * math.sqrt(dot_of_new_subset), lookup_table) * priori
 
 
-@cuda.jit('void(float64[:,:], int64[:], float64[:,:], float64[:,:])')
-def o_t_kernal(meanvec_array, subset_index, sub_cov_inv, results):
+@cuda.jit('void(float64[:,:], int64[:], float64[:,:], float64[:], float64[:,:])')
+def o_t_kernal(meanvec_array, subset_index, sub_cov_inv, lookup_table, results):
     '''The kernal for o_t. Each thread executes a kernal, which is responsible for one element in results array.
     Params:
         meanvec_array (np 2D array): contains the mean vector of every transmitter
@@ -174,6 +173,25 @@ def o_t_kernal(meanvec_array, subset_index, sub_cov_inv, results):
         if i == j:
             results[i, j] = 1.
         else:
+            pj_pi = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+            tmp = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
+            set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
+            results[i, j] = (1 - q_lookup(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size)), lookup_table))
+
+def o_t_kernal_distance(meanvec_array, subset_index, sub_cov_inv, results, num_of_hypotheses):
+    '''The kernal for o_t. Each thread executes a kernal, which is responsible for one element in results array.
+    Params:
+        meanvec_array (np 2D array): contains the mean vector of every transmitter
+        subset_index (np 1D array):  index of some sensors
+        cov_inv (np 2D array):       inverse of a covariance matrix
+        results (np 2D array):       save the all the results
+    '''
+    i, j = cuda.grid(2)
+    if i < results.shape[0] and j < results.shape[1]:  # warning: in Linux simulator, need to consider case i ==j
+        if i == j:
+            results[i, j] = 1.
+        else:
+            #distance = distance_of_hypothesis(i, j, num_of_hypotheses)
             pj_pi = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
             tmp = cuda.local.array(LOCAL_ARRAY_SIZE, dtype=float64)
             set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
