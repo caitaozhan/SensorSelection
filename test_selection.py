@@ -14,8 +14,8 @@ import plots
 import numpy as np
 import pandas as pd
 import random
-import line_profiler
-from joblib import Parallel, delayed, dump, load
+#import line_profiler
+#from joblib import Parallel, delayed, dump, load
 
 
 #Define constants for flags
@@ -24,6 +24,8 @@ BASELINE_GA = 1
 BASELINE_COV = 2
 BASELINE_RAN = 3
 BASELINE_AGA = 4
+BASELINE_WAGA = 5
+
 LARGE_INSTANCE = True
 SMALL_INSTANCE = False
 ONLY_INTRUDERS = 1
@@ -145,7 +147,7 @@ def test_splat(large=True, type_of_transmitter=ONLY_INTRUDERS):
             print('time = ', time.time()-start, '\n', results_GA)
             
             start = time.time()
-            results_GA  = selectsensor.select_offline_GA(40, 12, o_t_iter_kernal)
+            results_GA  = selectsensor.select_offline_GA(40, o_t_iter_kernal)
             print('time = ', time.time()-start, '\n', results_GA)
             
             # plots.save_data_AGA(results, 'plot_data_splat/fig1-homo/AGA')
@@ -260,7 +262,6 @@ def test_splat_baseline(large, algorithms, num_iterations = 1):
         selectsensor.rescale_intruder_hypothesis()
         # print(selectsensor.means)
         selectsensor.transmitters_to_array()        # for GPU
-        budget = 20
         if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
             #selectsensor.transmitters_to_array()
             results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2, loc_error=False)
@@ -269,7 +270,7 @@ def test_splat_baseline(large, algorithms, num_iterations = 1):
 
         if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:  # GA
             #selectsensor.transmitters_to_array()
-            results_GA = selectsensor.select_offline_GA(budget, 20, o_t_iter_kernal)
+            results_GA = selectsensor.select_offline_GA(budget, o_t_iter_kernal)
             #plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
 
         if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
@@ -454,7 +455,7 @@ def test_weighted_baseline(large, algorithms, num_iterations=1):
         #selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
         #selectsensor.rescale_intruder_hypothesis()
         #selectsensor.transmitters_to_array()        # for GPU
-        budget = 20
+        budget = 15
         grid_len = 40
     else:
         config = 'config/splat_config_64.json'
@@ -468,10 +469,11 @@ def test_weighted_baseline(large, algorithms, num_iterations=1):
         #selectsensor.transmitters_to_array()  # for GPU
         budget = 30
 
-    cumul_AGA = np.zeros((budget, num_iterations))
-    cumul_GA = np.zeros((budget, num_iterations))
-    cumul_RAN = np.zeros((budget, num_iterations))
-    cumul_COV = np.zeros((budget, num_iterations))
+    cumul_WAGA = np.zeros((budget + 1, num_iterations))
+    cumul_AGA = np.zeros((budget + 1, num_iterations))
+    cumul_GA = np.zeros((budget + 1, num_iterations))
+    cumul_RAN = np.zeros((budget + 1, num_iterations))
+    cumul_COV = np.zeros((budget + 1, num_iterations))
     for i in range(num_iterations):
         gen_data(i)
         selectsensor = SelectSensor(grid_len)
@@ -485,45 +487,205 @@ def test_weighted_baseline(large, algorithms, num_iterations=1):
         selectsensor.rescale_intruder_hypothesis()
         # print(selectsensor.means)
         selectsensor.transmitters_to_array()        # for GPU
-        budget = 20
         if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
             #selectsensor.transmitters_to_array()
-            results_WAGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_dist_kernal2, loc_error=False)
-            print(results_WAGA)
-            # #results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2)
-            # true_transmitters = np.random.choice(range(grid_len * grid_len), size=100, replace=True)
-            # error_WAGA = np.zeros(budget)
-            # print(error_WAGA)
-            # #plots.save_data(results_AGA, 'plot_data_splat/fig1-homo/GA')
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                results_WAGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_dist_kernal2)
 
-
-        if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
-            results_RAN = selectsensor.select_offline_random(budget, 20)
-            #plots.save_data(results_RAN, 'plot_data_splat/fig1-homo/random')
-
-        if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
-            results_COV = selectsensor.select_offline_coverage(budget, 20)
-            plots.save_data(results_COV, 'plot_data_splat/fig1-homo/coverage')
-
-        for j in range(len(results_AGA)):
             if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
-                cumul_AGA[j][i] = results_AGA[j][2]
+                results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2)
+
             if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
-                cumul_GA[j][i] = results_GA[j][1]
-            if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
-                #print(cumul_RAN, results_RAN[i][1])
-                cumul_RAN[j][i] = results_RAN[j][1]
-            if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
-                cumul_COV[j][i] = results_COV[j][1]
-    #print(cumul_AGA)
-    # cumul_AGA /= num_iterations
-    # cumul_GA /= num_iterations
-    # cumul_RAN /= num_iterations
-    # cumul_COV /= num_iterations
+                results_GA = selectsensor.select_offline_GA(budget, o_t_iter_kernal)
+            # plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
+
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
+                results_RAN = selectsensor.select_offline_random(budget, 20)
+                # plots.save_data(results_RAN, 'plot_data_splat/fig1-homo/random')
+
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
+                results_COV = selectsensor.select_offline_coverage(budget, 20)
+
+            true_x = np.random.choice(range(grid_len), size=100, replace=True)
+            true_y = np.random.choice(range(grid_len), size=100, replace=True)
+            for j in range(1, budget+1):
+                error_AGA = np.zeros(budget + 1)
+                error_WAGA = np.zeros(budget + 1)
+                error_GA = np.zeros(budget + 1)
+                error_COV = np.zeros(budget + 1)
+                error_RAN = np.zeros(budget + 1)
+
+                for tno, trans in enumerate(true_x):
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                        error_WAGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                            results_WAGA[j-1][3])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+                        error_AGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                        results_AGA[j-1][3])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+                        error_GA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                           results_GA[j-1][2])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+                        error_COV[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                               results_COV[j-1][2])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+                        error_RAN[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                           results_RAN[j-1][2])
+                error_AGA /= 100
+                error_WAGA /= 100
+                error_GA /= 100
+                error_COV /= 100
+                error_RAN /= 100
+                #print(j, error_AGA[j], error_WAGA[j], error_GA[j], error_COV[j], error_RAN[j])
+
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                    cumul_WAGA[j][i] = error_WAGA[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+                    cumul_AGA[j][i] = error_AGA[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+                    cumul_GA[j][i] = error_GA[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+                    #print(cumul_RAN, results_RAN[i][1])
+                    cumul_RAN[j][i] = error_RAN[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+                    cumul_COV[j][i] = error_COV[j]
 
     print('')
-    for j in range(len(results_AGA)):
+    for j in range(budget + 1):
         print(j, end = ' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+            mean_WAGA = np.mean(cumul_WAGA[j][:])
+            std_WAGA = np.std(cumul_WAGA[j][:])
+            print(mean_WAGA, std_WAGA, end = ' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+            mean_AGA = np.mean(cumul_AGA[j][:])
+            std_AGA = np.std(cumul_AGA[j][:])
+            print(mean_AGA, std_AGA, end = ' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+            mean_GA = np.mean(cumul_GA[j][:])
+            std_GA = np.std(cumul_GA[j][:])
+            print(mean_GA, std_GA, end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+            mean_RAN = np.mean(cumul_RAN[j][:])
+            std_RAN = np.std(cumul_RAN[j][:])
+            print(mean_RAN, std_RAN, end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+            mean_COV = np.mean(cumul_COV[j][:])
+            std_COV = np.std(cumul_COV[j][:])
+            print(mean_COV, std_COV, end=' ')
+        print('')
+
+def test_weighted_hetero_baseline(large, algorithms, num_iterations=1):
+    if large is False:
+        cov_file            = 'dataSplat/1600-100/cov'
+        sensor_file         = 'dataSplat/1600-100/sensors'
+        intruder_hypo_file  = 'dataSplat/1600-100/hypothesis'
+        #selectsensor = SelectSensor(40)
+        #selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
+        #selectsensor.rescale_intruder_hypothesis()
+        #selectsensor.transmitters_to_array()        # for GPU
+        budget = 15
+        grid_len = 40
+    else:
+        config = 'config/splat_config_64.json'
+        cov_file = 'dataSplat/4096/cov'
+        sensor_file = 'dataSplat/4096/sensors'
+        intruder_hypo_file  = 'dataSplat/4096/hypothesis'
+        selectsensor = SelectSensor(64)
+        selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
+        selectsensor.rescale_intruder_hypothesis()
+        grid_len = 64
+        #selectsensor.transmitters_to_array()  # for GPU
+        budget = 30
+
+    cumul_WAGA = np.zeros((budget + 1, num_iterations))
+    cumul_AGA = np.zeros((budget + 1, num_iterations))
+    cumul_GA = np.zeros((budget + 1, num_iterations))
+    cumul_RAN = np.zeros((budget + 1, num_iterations))
+    cumul_COV = np.zeros((budget + 1, num_iterations))
+    for i in range(num_iterations):
+        gen_data(i, hetero=True)
+        selectsensor = SelectSensor(grid_len)
+        cov_file_cur = cov_file + str(i)
+        sensor_file_cur = sensor_file + str(i)
+        intruder_hypo_file_cur = intruder_hypo_file + str(i)
+        #cov_file_cur = cov_file
+        #sensor_file_cur = sensor_file
+        #intruder_hypo_file_cur = intruder_hypo_file
+        selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
+        selectsensor.rescale_intruder_hypothesis()
+        # print(selectsensor.means)
+        selectsensor.transmitters_to_array()        # for GPU
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+            #selectsensor.transmitters_to_array()
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                results_WAGA = selectsensor.select_offline_greedy_hetero(budget, 20, o_t_approx_dist_kernal2)
+
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+                results_AGA = selectsensor.select_offline_greedy_hetero(budget, 20, o_t_approx_kernal2)
+
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+                results_GA = selectsensor.select_offline_GA_hetero(budget, o_t_iter_kernal)
+            # plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
+
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
+                results_RAN = selectsensor.select_offline_random(budget, 20)
+                # plots.save_data(results_RAN, 'plot_data_splat/fig1-homo/random')
+
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
+                results_COV = selectsensor.select_offline_coverage_hetero(budget, 20)
+
+            true_x = np.random.choice(range(grid_len), size=100, replace=True)
+            true_y = np.random.choice(range(grid_len), size=100, replace=True)
+            for j in range(1, budget+1):
+                error_AGA = np.zeros(budget + 1)
+                error_WAGA = np.zeros(budget + 1)
+                error_GA = np.zeros(budget + 1)
+                error_COV = np.zeros(budget + 1)
+                error_RAN = np.zeros(budget + 1)
+
+                for tno, trans in enumerate(true_x):
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                        error_WAGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                            results_WAGA[j-1][2])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+                        error_AGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                        results_AGA[j-1][2])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+                        error_GA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                           results_GA[j-1][2])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+                        error_COV[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                               results_COV[j-1][2])
+                    if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+                        error_RAN[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                           results_RAN[j-1][2])
+                error_AGA /= 100
+                error_WAGA /= 100
+                error_GA /= 100
+                error_COV /= 100
+                error_RAN /= 100
+                #print(j, error_AGA[j], error_WAGA[j], error_GA[j], error_COV[j], error_RAN[j])
+
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                    cumul_WAGA[j][i] = error_WAGA[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+                    cumul_AGA[j][i] = error_AGA[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+                    cumul_GA[j][i] = error_GA[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+                    #print(cumul_RAN, results_RAN[i][1])
+                    cumul_RAN[j][i] = error_RAN[j]
+                if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+                    cumul_COV[j][i] = error_COV[j]
+
+    print('')
+    for j in range(budget + 1):
+        print(j, end = ' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+            mean_WAGA = np.mean(cumul_WAGA[j][:])
+            std_WAGA = np.std(cumul_WAGA[j][:])
+            print(mean_WAGA, std_WAGA, end = ' ')
         if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
             mean_AGA = np.mean(cumul_AGA[j][:])
             std_AGA = np.std(cumul_AGA[j][:])
@@ -552,7 +714,7 @@ def test_splat_opt():
     cov_file = 'dataSplat/1600-100/cov'
     sensor_file = 'dataSplat/1600-100/sensors'
     intruder_hypo_file = 'dataSplat/1600-100/hypothesis'
-    budget = 10
+    budget = 8
     num_iterations = 1
     cumul_GA = np.zeros((budget + 1, num_iterations))
     cumul_OPT = np.zeros((budget + 1, num_iterations))
@@ -570,7 +732,7 @@ def test_splat_opt():
         #print(results)
         # plots.save_data_AGA(results, 'plot_data_splat/fig2-homo-small/AGA{}'.format(i))
 
-        results_GA = selectsensor.select_offline_GA(budget, 20, o_t_iter_kernal)
+        results_GA = selectsensor.select_offline_GA(budget, o_t_iter_kernal)
 
         # results = selectsensor.select_offline_GA(10, 10, o_t_iter_kernal)
         
@@ -582,7 +744,7 @@ def test_splat_opt():
 
         # plot_data = []
         ots = [0] * (budget + 1)
-        for budget in range(1, budget + 1):
+        for budget in range(8, budget + 1):
             _, ots[budget] = selectsensor.select_offline_optimal(budget, 20)
         for j in range(1, budget + 1):
             cumul_GA[j][i] = results_GA[j-1][1]
@@ -769,6 +931,25 @@ def test_splat_scalability(large = False):
     # cpu_time = AGA_cpu_end - AGA_cpu_start
     # print('CPU time = ', cpu_time)
 
+from transmitter import Transmitter
+def test_update_hypothesis():
+    true_transmitter = Transmitter(5, 5)
+
+    selectsensor = SelectSensor(10)
+    cov_file = 'dataSplat/100/cov1'
+    sensor_file = 'dataSplat/100/sensors1'
+    intruder_hypo_file = 'dataSplat/100/hypothesis1'
+    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
+    selectsensor.rescale_intruder_hypothesis()
+    selectsensor.transmitters_to_array()  # for GPU
+
+    #results_AGA = selectsensor.select_offline_greedy_lazy_gpu(30, 20, o_t_approx_kernal2)
+    #print('results_AGA = ', results_AGA[-1][3])
+    selectsensor.update_hypothesis(true_transmitter, range(10))
+    max_posterior = np.argmax(selectsensor.grid_posterior)
+    print(selectsensor.grid_posterior[0][0], np.sum(selectsensor.grid_posterior))
+    print(max_posterior)
+
 
 if __name__ == '__main__':
     #test_map()
@@ -783,11 +964,14 @@ if __name__ == '__main__':
     #test_splat_localization_single_intruder()
     #select_online_random(self, budget, cores, true_index=-1)
     #test_splat(False, 3)
-    #test_splat_opt()
+    test_splat_opt()
     #test_splat_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=1)
-    #test_weighted_baseline(SMALL_INSTANCE, BASELINE_AGA, num_iterations=1)
+    #test_weighted_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=10)
+    #test_weighted_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=10)
     #test_splat_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)
-    test_splat_scalability(large=True)
+    #test_splat_scalability(large=True)
     #test_splat_opt()
     #test_splat_total_sensors()
     #test_splat_hetero(0)
+
+    #test_update_hypothesis()

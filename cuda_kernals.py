@@ -178,7 +178,7 @@ def o_t_kernal(meanvec_array, subset_index, sub_cov_inv, lookup_table, results):
             set_pj_pi(meanvec_array, subset_index, j, i, pj_pi)
             results[i, j] = (1 - q_lookup(0.5 * math.sqrt(matmul(pj_pi, sub_cov_inv, tmp, subset_index.size)), lookup_table))
 
-def o_t_kernal_distance(meanvec_array, subset_index, sub_cov_inv, results, num_of_hypotheses):
+def o_t_kernal_distance(meanvec_array, subset_index, sub_cov_inv, results):
     '''The kernal for o_t. Each thread executes a kernal, which is responsible for one element in results array.
     Params:
         meanvec_array (np 2D array): contains the mean vector of every transmitter

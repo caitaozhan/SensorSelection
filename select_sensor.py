@@ -23,15 +23,15 @@ try:
                              o_t_iter_kernal, prod_reduce#, o_t_iter_dist_kernal
 except Exception as e:
     pass
-from itertools import combinations
-import line_profiler
-from sklearn.cluster import KMeans
-from scipy.optimize import nnls
+#from itertools import combinations
+#import line_profiler
+#from sklearn.cluster import KMeans
+#from scipy.optimize import nnls
 from scipy.stats import norm
-from plots import visualize_sensor_output, visualize_cluster, visualize_localization, visualize_q_prime, visualize_q, visualize_splot, visualize_unused_sensors
-from utility import generate_intruders, generate_intruders_2
-from skimage.feature import peak_local_max
-import itertools
+#from plots import visualize_sensor_output, visualize_cluster, visualize_localization, visualize_q_prime, visualize_q, visualize_splot, visualize_unused_sensors
+#from utility import generate_intruders, generate_intruders_2
+#from skimage.feature import peak_local_max
+#import itertools
 from localization_error import LocalizationError
 
 
@@ -827,7 +827,7 @@ class SelectSensor:
         o_t = self.o_t_host(subset_index)
         return o_t
 
-    def select_offline_greedy_lazy_gpu(self, budget, cores, cuda_kernal, loc_error = False):
+    def select_offline_greedy_lazy_gpu(self, budget, cores, cuda_kernal):
         '''(Parallel + Lazy greedy) Select a subset of sensors greedily. offline + homo version using ** GPU **
            The O(BS M^2) implementation + lookup table
         Args:
@@ -863,8 +863,6 @@ class SelectSensor:
         d_results         = cuda.device_array(n_h*n_h, np.float64)
         d_lookup_table    = cuda.to_device(self.lookup_table_q)
 
-        if loc_error:
-            loc = LocalizationError(self.transmitters, self.stds)
 
         #logger = open('dataSplat/log', 'w')
         while cost < budget and complement_sensors:
@@ -906,9 +904,6 @@ class SelectSensor:
             if base_ot_approx > 0.9999999999999:
                 break
             cost += 1
-            if loc_error:
-                print(best_candidate)
-                loc.compute_loc_error(best_candidate)
         #return # test speed for pure selection
         #logger.close()
         print('Total time of selection: {:.3f} s'.format(time.time() - start1))
@@ -918,8 +913,6 @@ class SelectSensor:
 
         for i in range(len(subset_results)):
             plot_data[i][2] = subset_results[i]
-        if loc_error:
-            print ('Localization Error = ', loc.errors)
         return plot_data
 
     # @profile
@@ -960,7 +953,7 @@ class SelectSensor:
 
 
     # @profile
-    def select_offline_GA(self, budget, cores, cuda_kernal):
+    def select_offline_GA(self, budget, cuda_kernal):
         '''Using the Ot real during selection, not submodular, no proformance guarantee
         Args:
             budget (int): budget constraint
@@ -1181,7 +1174,7 @@ class SelectSensor:
             print('first pass is selected')
             return first_pass_plot_data
 
-    def select_offline_optimal(self, budget, cores, num_samples = 10000):
+    def select_offline_optimal(self, budget, cores, num_samples = 100000):
         '''brute force all possible subsets in a small input such as 10 x 10 grid
         Args:
             budget (int): budget constraint
@@ -1197,7 +1190,7 @@ class SelectSensor:
         # except:
         #     pass
         start = time.time()
-        subset_to_compute = [0] * num_samples
+        subsgit et_to_compute = [0] * num_samples
         for i in range(num_samples):
             subset_to_compute[i] = np.random.choice(len(self.sensors), budget, replace=False)
 
@@ -1671,7 +1664,8 @@ class SelectSensor:
                 if distance.euclidean([x, y], [sensor.x, sensor.y]) <= radius:
                     coverage[x][y] += 1
 
-    def update_hypothesis(self, true_transmitter, subset_index):
+
+    def compute_conditional_error(self, true_x, true_y, subset_index):
         '''Use Bayes formula to update P(hypothesis): from prior to posterior
            After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
            An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
@@ -1679,30 +1673,47 @@ class SelectSensor:
             true_transmitter (Transmitter)
             subset_index (list)
         '''
-        #np.random.seed(true_x*self.grid_len + true_y*true_y)  # change seed here
-        true_x = true_transmitter % self.grid_len
-        true_y = true_transmitter // self.grid_len
-        data = [0] * len(subset_index)                          # the true transmitter generate some data
-        error = 0
-        for i, index in enumerate(subset_index):
-            sensor = self.sensors[index]
-            mean = self.means[self.grid_len*true_x + true_y, sensor.index]
-            std = self.stds[self.grid_len*true_x + true_y, sensor.index]
-            data[i] = np.random.normal(mean, std)
-        likelihoods = np.ones(len(subset_index))
-        for trans in self.transmitters:
-            trans.set_mean_vec_sub(subset_index)
-            cov_sub = self.covariance[np.ix_(subset_index, subset_index)]
-            likelihood = np.prod(norm.pdf(data, trans.mean_vec_sub, std))
+        # np.random.seed(true_x*self.grid_len + true_y*true_y)  # change seed here
+        # data = np.zeros(len(subset_index))  # the true transmitter generate some data
+        # for i, index in enumerate(subset_index):
+        #     sensor = self.sensors[index]
+        mean = self.means_rescale[self.grid_len * true_x + true_y, subset_index]
+        std = self.stds[self.grid_len * true_x + true_y, subset_index]
+        data = np.random.normal(mean, std)
+        cov_sub = np.diagonal(self.covariance[np.ix_(subset_index, subset_index)])
 
-            #likelihood = np.prod(np.random.normal(data))
-            #ikelihood = multivariate_normal(mean=trans.mean_vec_sub, cov=cov_sub).pdf(data)
-            #print('Likelihood = ', likelihood)
-            self.grid_posterior[true_x][true_y] = likelihood * self.grid_priori[true_x][true_y]
-            error += np.sqrt((trans.x - true_x) ** 2 + (trans.y - true_y) ** 2) \
-                     * self.grid_posterior[trans.x][trans.y]
+        #distance = np.zeros(self.grid_len, self.grid_len)
+        mean_vec_sub = np.array([trans.mean_vec[subset_index] for trans in self.transmitters])
+        cov_sub = np.broadcast_to(cov_sub,(len(self.transmitters),len(cov_sub)))
+        data = np.broadcast_to(data, (len(self.transmitters), len(data)))
+
+        array_of_pdfs = norm(mean_vec_sub, cov_sub).pdf(data)
+        likelihood = np.prod(array_of_pdfs, axis=1) #One likelihood for each transmitter
+        #print(mean_vec_sub.shape, array_of_pdfs.shape, likelihood.shape)
+        self.grid_posterior = np.multiply(likelihood, self.grid_priori.flatten())
+        denominator = np.sum(self.grid_posterior)
+        self.grid_posterior /= denominator
+        #self.grid_posterior = np.reshape(self.grid_posterior, (-1, self.grid_len))
+        # for trans in self.transmitters:
+        #     trans.set_mean_vec_sub(subset_index)
+        #     array_of_pdfs = norm(trans.mean_vec_sub, cov_sub).pdf(data)
+        #     likelihood = np.prod(array_of_pdfs)
+        #     #print('Likelihood = ', likelihood)
+        #     self.grid_posterior[trans.x][trans.y] = likelihood * self.grid_priori[trans.x][trans.y]
+        # denominator = np.sum(self.grid_posterior)
+        # #print('den = ', denominator)
+        # self.grid_posterior = self.grid_posterior / denominator
+        x_dist = np.array([trans.x - true_x for trans in self.transmitters])
+        y_dist = np.array([trans.y - true_y for trans in self.transmitters])
+        distance = np.sqrt(np.multiply(x_dist, x_dist) + np.multiply(y_dist, y_dist))
+        #distance = np.reshape(distance, (-1, self.grid_len))
+        error = np.sum(np.multiply(distance, self.grid_posterior))
+
+
+        # for trans in self.transmitters:
+        #     distance = np.sqrt((true_x - trans.x) ** 2 + (true_y - trans.y) ** 2)
+        #     error += self.grid_posterior[trans.x][trans.y] * distance
         return error
-
 
 
 
@@ -1951,7 +1962,7 @@ class SelectSensor:
             cost += 1
         print('number of o_t_approx', counter)
         subset_results = Parallel(n_jobs=cores)(
-            delayed(self.inner_greedy_real_ot)(subset_index) for subset_index in subset_to_compute)
+            delayed(self.inner_greedy_real_ot_old)(subset_index) for subset_index in subset_to_compute)
 
         for i in range(len(subset_results)):
             plot_data[i][2] = subset_results[i]
