@@ -23,6 +23,7 @@ try:
                              o_t_iter_kernal, prod_reduce#, o_t_iter_dist_kernal
 except Exception as e:
     pass
+import traceback
 #from itertools import combinations
 #import line_profiler
 #from sklearn.cluster import KMeans
@@ -34,6 +35,8 @@ from scipy.stats import norm
 #import itertools
 from localization_error import LocalizationError
 
+RTL_SDR_NOISE_FLOOR = -80
+WIFI_NOISE_FLOOR = -65
 
 class SelectSensor:
     '''Near-optimal low-cost sensor selection
@@ -85,7 +88,8 @@ class SelectSensor:
         self.lookup_table_q = np.array([1. - 0.5*(1. + math.erf(i/1.4142135623730951)) for i in np.arange(0, 8.3, 0.0001)])
         self.lookup_table_norm = norm(0, 1).pdf(np.arange(0, 39, 0.0001))  # norm(0, 1).pdf(39) = 0
         self.counter = Counter()               # timer
-        self.debug  = debug                    # debug mode do visulization stuff, which is time expensive 
+        self.debug  = debug                    # debug mode do visulization stuff, which is time expensive
+        self.present = np.zeros(self.grid_len * self.grid_len)
 
     #@profile
     def init_data(self, cov_file, sensor_file, hypothesis_file):
@@ -95,7 +99,7 @@ class SelectSensor:
            3. init mean and std between every pair of transmitters and sensors
         '''
         cov = pd.read_csv(cov_file, header=None, delimiter=' ')
-        del cov[len(cov)]
+        #del cov[len(cov)]
         self.covariance = cov.values
 
         self.sensors = []
@@ -112,6 +116,7 @@ class SelectSensor:
 
         self.means = np.zeros((self.grid_len * self.grid_len, len(self.sensors)))
         self.stds = np.zeros((self.grid_len * self.grid_len, len(self.sensors)))
+        #self.grid_priori = np.zeros((self.grid_len, self.grid_len))
         with open(hypothesis_file, 'r') as f:
             lines = f.readlines()
             count = 0
@@ -122,7 +127,11 @@ class SelectSensor:
                 mean, std = float(line[4]), float(line[5])
                 self.means[tran_x*self.grid_len + tran_y, count] = mean  # count equals to the index of the sensors
                 self.stds[tran_x*self.grid_len + tran_y, count] = std
+                #self.grid_priori[tran_x, tran_y] = 1
+                self.present[tran_x * self.grid_len + tran_y] = 1
                 count = (count + 1) % len(self.sensors)
+        denominator = np.sum(self.grid_priori)
+        #self.grid_priori /= denominator
 
         #temp_mean = np.zeros(self.grid_len * self.grid_len, )
         for transmitter in self.transmitters:
@@ -420,10 +429,10 @@ class SelectSensor:
         self.means_all = power_2_db(self.means_all)
 
 
-    def rescale_intruder_hypothesis(self):
+    def rescale_intruder_hypothesis(self, noise_floor = RTL_SDR_NOISE_FLOOR):
         '''Rescale hypothesis, and save it in a new np.array
         '''
-        threshold = -80
+        threshold = noise_floor
         num_trans = len(self.transmitters)
         num_sen   = len(self.sensors)
         self.means_rescale = np.zeros((num_trans, num_sen))
@@ -838,7 +847,7 @@ class SelectSensor:
             (list): an element is [str, int, float],
                     where str is the list of subset_index, int is # of sensors, float is O_T
         '''
-        print('Start sensor selection...')
+        print('Start sensor selection...', np.isnan(np.sum(self.grid_priori)))
         start1 = time.time()
         base_ot_approx = 0
         if cuda_kernal == o_t_approx_kernal2:
@@ -878,7 +887,7 @@ class SelectSensor:
                 candidate_result = self.o_t_approx_host(d_dot_of_selected, candidate,
                                                         d_covariance, d_meanvec, d_results, cuda_kernal, d_lookup_table)
 
-                #print(i, (complement_sensors[i].x, complement_sensors[i].y), candidate_result, file=logger)
+                #print(i, (complement_sensors[i].x, complement_sensors[i].y), candidate_result)
                 complement_sensors[i].gain_up_bound = candidate_result - base_ot_approx
                 if complement_sensors[i].gain_up_bound > max_gain:
                     max_gain = complement_sensors[i].gain_up_bound
@@ -1190,7 +1199,7 @@ class SelectSensor:
         # except:
         #     pass
         start = time.time()
-        subsgit et_to_compute = [0] * num_samples
+        subset_to_compute = [0] * num_samples
         for i in range(num_samples):
             subset_to_compute[i] = np.random.choice(len(self.sensors), budget, replace=False)
 
@@ -1664,19 +1673,7 @@ class SelectSensor:
                 if distance.euclidean([x, y], [sensor.x, sensor.y]) <= radius:
                     coverage[x][y] += 1
 
-
-    def compute_conditional_error(self, true_x, true_y, subset_index):
-        '''Use Bayes formula to update P(hypothesis): from prior to posterior
-           After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
-           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
-        Args:
-            true_transmitter (Transmitter)
-            subset_index (list)
-        '''
-        # np.random.seed(true_x*self.grid_len + true_y*true_y)  # change seed here
-        # data = np.zeros(len(subset_index))  # the true transmitter generate some data
-        # for i, index in enumerate(subset_index):
-        #     sensor = self.sensors[index]
+    def compute_posterior(self, true_x, true_y, subset_index):
         mean = self.means_rescale[self.grid_len * true_x + true_y, subset_index]
         std = self.stds[self.grid_len * true_x + true_y, subset_index]
         data = np.random.normal(mean, std)
@@ -1690,9 +1687,24 @@ class SelectSensor:
         array_of_pdfs = norm(mean_vec_sub, cov_sub).pdf(data)
         likelihood = np.prod(array_of_pdfs, axis=1) #One likelihood for each transmitter
         #print(mean_vec_sub.shape, array_of_pdfs.shape, likelihood.shape)
+        #print('Sum of available', self.present), np.sum())
         self.grid_posterior = np.multiply(likelihood, self.grid_priori.flatten())
+        np.set_printoptions(threshold=100000)
+        #print(self.grid_posterior)
+        #print(self.present)
+        #print(self.grid_posterior)
         denominator = np.sum(self.grid_posterior)
         self.grid_posterior /= denominator
+
+    def compute_conditional_error(self, true_x, true_y, subset_index):
+        '''Use Bayes formula to update P(hypothesis): from prior to posterior
+           After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
+           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
+        Args:
+            true_transmitter (Transmitter)
+            subset_index (list)
+        '''
+
         #self.grid_posterior = np.reshape(self.grid_posterior, (-1, self.grid_len))
         # for trans in self.transmitters:
         #     trans.set_mean_vec_sub(subset_index)
@@ -1707,7 +1719,7 @@ class SelectSensor:
         y_dist = np.array([trans.y - true_y for trans in self.transmitters])
         distance = np.sqrt(np.multiply(x_dist, x_dist) + np.multiply(y_dist, y_dist))
         #distance = np.reshape(distance, (-1, self.grid_len))
-        error = np.sum(np.multiply(distance, self.grid_posterior))
+        error = np.sum(np.multiply(distance, self.grid_posterior.flatten()))
 
 
         # for trans in self.transmitters:
