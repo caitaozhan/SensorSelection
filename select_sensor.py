@@ -36,7 +36,7 @@ from scipy.stats import norm
 from localization_error import LocalizationError
 
 RTL_SDR_NOISE_FLOOR = -80
-WIFI_NOISE_FLOOR = -65
+WIFI_NOISE_FLOOR = -80
 
 class SelectSensor:
     '''Near-optimal low-cost sensor selection
@@ -428,6 +428,18 @@ class SelectSensor:
             self.means_all[trans_index, :] = new_means
         self.means_all = power_2_db(self.means_all)
 
+    def rescale_wifi_hypothesis(self):
+        threshold = -125
+        num_trans = len(self.transmitters)
+        num_sensors = len(self.sensors)
+        self.means_rescale = np.zeros((num_trans, num_sensors))
+        for i in range(num_trans):
+            for j in range(num_sensors):
+                mean = self.means[i, j]
+                mean -= threshold
+                mean = mean if mean>=0 else 0
+                self.means_rescale[i, j] = mean
+                self.transmitters[i].mean_vec[j] = mean
 
     def rescale_intruder_hypothesis(self, noise_floor = RTL_SDR_NOISE_FLOOR):
         '''Rescale hypothesis, and save it in a new np.array
@@ -1673,7 +1685,19 @@ class SelectSensor:
                 if distance.euclidean([x, y], [sensor.x, sensor.y]) <= radius:
                     coverage[x][y] += 1
 
-    def compute_posterior(self, true_x, true_y, subset_index):
+
+    def compute_conditional_error(self, true_x, true_y, subset_index):
+        '''Use Bayes formula to update P(hypothesis): from prior to posterior
+           After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
+           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
+        Args:
+            true_transmitter (Transmitter)
+            subset_index (list)
+        '''
+        # np.random.seed(true_x*self.grid_len + true_y*true_y)  # change seed here
+        # data = np.zeros(len(subset_index))  # the true transmitter generate some data
+        # for i, index in enumerate(subset_index):
+        #     sensor = self.sensors[index]
         mean = self.means_rescale[self.grid_len * true_x + true_y, subset_index]
         std = self.stds[self.grid_len * true_x + true_y, subset_index]
         data = np.random.normal(mean, std)
@@ -1687,24 +1711,10 @@ class SelectSensor:
         array_of_pdfs = norm(mean_vec_sub, cov_sub).pdf(data)
         likelihood = np.prod(array_of_pdfs, axis=1) #One likelihood for each transmitter
         #print(mean_vec_sub.shape, array_of_pdfs.shape, likelihood.shape)
-        #print('Sum of available', self.present), np.sum())
         self.grid_posterior = np.multiply(likelihood, self.grid_priori.flatten())
-        np.set_printoptions(threshold=100000)
-        #print(self.grid_posterior)
-        #print(self.present)
-        #print(self.grid_posterior)
+        self.grid_posterior = np.multiply(self.grid_posterior, self.present)
         denominator = np.sum(self.grid_posterior)
         self.grid_posterior /= denominator
-
-    def compute_conditional_error(self, true_x, true_y, subset_index):
-        '''Use Bayes formula to update P(hypothesis): from prior to posterior
-           After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
-           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
-        Args:
-            true_transmitter (Transmitter)
-            subset_index (list)
-        '''
-
         #self.grid_posterior = np.reshape(self.grid_posterior, (-1, self.grid_len))
         # for trans in self.transmitters:
         #     trans.set_mean_vec_sub(subset_index)
@@ -1719,7 +1729,7 @@ class SelectSensor:
         y_dist = np.array([trans.y - true_y for trans in self.transmitters])
         distance = np.sqrt(np.multiply(x_dist, x_dist) + np.multiply(y_dist, y_dist))
         #distance = np.reshape(distance, (-1, self.grid_len))
-        error = np.sum(np.multiply(distance, self.grid_posterior.flatten()))
+        error = np.sum(np.multiply(distance, self.grid_posterior))
 
 
         # for trans in self.transmitters:

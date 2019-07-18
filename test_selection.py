@@ -663,7 +663,7 @@ def test_weighted_baseline(large, algorithms, num_iterations=1):
         #selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
         #selectsensor.rescale_intruder_hypothesis()
         #selectsensor.transmitters_to_array()        # for GPU
-        budget = 10
+        budget = 20
         grid_len = 40
     elif large is LARGE_INSTANCE:
         config = 'config/splat_config_64.json'
