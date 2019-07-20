@@ -870,7 +870,7 @@ class SelectSensor:
             for sensor in self.sensors:                                   # need to update the max gain upper bound for o_t_approx with distance
                 sensor.gain_up_bound = max_gain_up_bound
             base_ot_approx = (1 - 0.5*len(self.transmitters))*largest_dist
-
+        
         plot_data = []
         cost = 0                                             # |T| in the paper
         subset_index = []                                    # T   in the paper
