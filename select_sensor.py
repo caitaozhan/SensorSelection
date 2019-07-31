@@ -121,10 +121,13 @@ class SelectSensor:
             lines = f.readlines()
             count = 0
             for line in lines:
-                line = line.split(' ')
-                tran_x, tran_y = int(line[0]), int(line[1])
-                #sen_x, sen_y = int(line[2]), int(line[3])
-                mean, std = float(line[4]), float(line[5])
+                try:
+                    line = line.split(' ')
+                    tran_x, tran_y = int(line[0]), int(line[1])
+                    #sen_x, sen_y = int(line[2]), int(line[3])
+                    mean, std = float(line[4]), float(line[5])
+                except:
+                    print('Exception', line)
                 self.means[tran_x*self.grid_len + tran_y, count] = mean  # count equals to the index of the sensors
                 self.stds[tran_x*self.grid_len + tran_y, count] = std
                 #self.grid_priori[tran_x, tran_y] = 1
@@ -441,7 +444,7 @@ class SelectSensor:
                 self.means_rescale[i, j] = mean
                 self.transmitters[i].mean_vec[j] = mean
 
-    def rescale_intruder_hypothesis(self, noise_floor = RTL_SDR_NOISE_FLOOR):
+    def rescale_intruder_hypothesis(self, noise_floor = RTL_SDR_NOISE_FLOOR, offset=0):
         '''Rescale hypothesis, and save it in a new np.array
         '''
         threshold = noise_floor
@@ -450,7 +453,7 @@ class SelectSensor:
         self.means_rescale = np.zeros((num_trans, num_sen))
         for i in range(num_trans):
             for j in range(num_sen):
-                mean = self.means[i, j]
+                mean = self.means[i, j] + offset
                 mean -= threshold
                 mean = mean if mean>=0 else 0
                 self.means_rescale[i, j] = mean
@@ -859,7 +862,7 @@ class SelectSensor:
             (list): an element is [str, int, float],
                     where str is the list of subset_index, int is # of sensors, float is O_T
         '''
-        print('Start sensor selection...', np.isnan(np.sum(self.grid_priori)))
+        print('Start sensor selection...')
         start1 = time.time()
         base_ot_approx = 0
         if cuda_kernal == o_t_approx_kernal2:
@@ -870,7 +873,11 @@ class SelectSensor:
             for sensor in self.sensors:                                   # need to update the max gain upper bound for o_t_approx with distance
                 sensor.gain_up_bound = max_gain_up_bound
             base_ot_approx = (1 - 0.5*len(self.transmitters))*largest_dist
-        
+
+        #self.means -= 5
+        #self.meanvec_array -= 5
+        self.rescale_intruder_hypothesis()
+
         plot_data = []
         cost = 0                                             # |T| in the paper
         subset_index = []                                    # T   in the paper
@@ -927,11 +934,12 @@ class SelectSensor:
             cost += 1
         #return # test speed for pure selection
         #logger.close()
-        print('Total time of selection: {:.3f} s'.format(time.time() - start1))
+        #print('Total time of selection: {:.3f} s'.format(time.time() - start1))
         start = time.time()
         subset_results = Parallel(n_jobs=cores, max_nbytes=None)(delayed(self.o_t_host)(subset_index) for subset_index in subset_to_compute)
-        print('Total time of optimal  : {:.3f} s'.format(time.time() - start))
-
+        #print('Total time of optimal  : {:.3f} s'.format(time.time() - start))
+        # for i in range(len(subset_index)):
+        #     print(plot_data[i][1])
         for i in range(len(subset_results)):
             plot_data[i][2] = subset_results[i]
         return plot_data
@@ -1195,7 +1203,7 @@ class SelectSensor:
             print('first pass is selected')
             return first_pass_plot_data
 
-    def select_offline_optimal(self, budget, cores, num_samples = 100000):
+    def select_offline_optimal(self, budget, cores, num_samples = 100):
         '''brute force all possible subsets in a small input such as 10 x 10 grid
         Args:
             budget (int): budget constraint
