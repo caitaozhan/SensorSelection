@@ -6,62 +6,103 @@ import matplotlib.pyplot as plt
 import scipy
 
 import os
+# class Utilities:
+#     peakValues = None
+#     numOfPoints = 0
+#     meanDict = {}
+#     varianceDict = {}
+#
+#     def totalpower(self, psd):
+#         avg_psd_dB = 10 * np.log10(np.average(psd) / 10.0)
+#         return avg_psd_dB
+#
+#     def get_peak_pos(self, reals, imags, sample_rate, fc, NFFT):
+#         numFFTs = int(len(reals) / NFFT)
+#         maxValues = np.zeros(numFFTs)
+#         averageValues = np.zeros(numFFTs)
+#         positions = np.zeros(numFFTs)
+#         errors = 0
+#
+#         i = 0
+#         iq_samples = np.array(
+#             [(re + 1j * co) for re, co in zip(reals[i * NFFT:(i + 1) * NFFT], imags[i * NFFT:(i + 1) * NFFT])])
+#         x = plt.psd(iq_samples, NFFT=NFFT, Fs=sample_rate / 1e6, Fc=fc)
+#         #print(iq_samples, NFFT, sample_rate / 1e6, fc)
+#         np.set_printoptions(threshold=np.infty)
+#         #print(x[0])
+#         firsthalf = 10 * np.log10(x[0][0:int(1 * len(x[0]) / 2) - 1])
+#         peakPoint = np.argmax(firsthalf)
+#         return peakPoint
+#
+#     def collect_peaks(self, reals, imags, sample_rate, fc, NFFT, peakPoint):
+#         numFFTs = 1
+#         maxValues = np.zeros(numFFTs)
+#         averageValues = np.zeros(numFFTs)
+#         positions = np.zeros(numFFTs)
+#         errors = 0
+#         for i in range(0, numFFTs):  # len(reals)/NFFT
+#
+#             iq_samples = np.array(
+#                 [(re + 1j * co) for re, co in zip(reals[i * NFFT:(i + 1) * NFFT], imags[i * NFFT:(i + 1) * NFFT])])
+#             x = plt.psd(iq_samples, NFFT=NFFT, Fs=sample_rate / 1e6, Fc=fc)
+#
+#             np.set_printoptions(threshold=np.infty)
+#
+#             firsthalf = 10 * np.log10(x[0][0:int(1 * len(x[0]) / 2) - 1])
+#             self.peakValues[self.numOfPoints] = firsthalf[peakPoint]
+#             self.numOfPoints += 1
+#
+#     def post_process(self, filename):
+#         mean = np.mean(self.peakValues[:self.numOfPoints])
+#         variance = np.var(self.peakValues[:self.numOfPoints])
+#         std = np.std(self.peakValues[:self.numOfPoints])
+#         self.meanDict[filename] = mean
+#         self.varianceDict[filename] = variance
+#
+#     def __init__(self):
+#         self.peakValues = np.zeros(256)
+#
+# class RTL_IQ_analysis:
+#     def __init__(self, iqfile, datatype, block_length, sample_rate):
+#         self.iqfile = iqfile
+#         self.datatype = datatype
+#         self.sizeof_data = self.datatype.nbytes  # number of bytes per sample in file
+#         self.block_length = block_length
+#         self.sample_rate = sample_rate
+#         self.hfile = open(self.iqfile, "rb")
+#         self.call_count = 0
+#
+#         def on_die(killed_ref):
+#             print('on_die')
+#             self.hfile.close()
+
 class Utilities:
-    peakValues = None
-    numOfPoints = 0
-    meanDict = {}
-    varianceDict = {}
 
     def totalpower(self, psd):
+
         avg_psd_dB = 10 * np.log10(np.average(psd) / 10.0)
         return avg_psd_dB
 
-    def get_peak_pos(self, reals, imags, sample_rate, fc, NFFT):
-        numFFTs = int(len(reals) / NFFT)
+    def plot_fft(self, reals, imags, sample_rate, fc, NFFT):
+        numFFTs = 1
         maxValues = np.zeros(numFFTs)
         averageValues = np.zeros(numFFTs)
         positions = np.zeros(numFFTs)
         errors = 0
+        for i in range(0, numFFTs): #len(reals)/NFFT
 
-        i = 0
-        iq_samples = np.array(
-            [(re + 1j * co) for re, co in zip(reals[i * NFFT:(i + 1) * NFFT], imags[i * NFFT:(i + 1) * NFFT])])
-        x = plt.psd(iq_samples, NFFT=NFFT, Fs=sample_rate / 1e6, Fc=fc)
-
-        np.set_printoptions(threshold=np.infty)
-
-        firsthalf = 10 * np.log10(x[0][0:int(1 * len(x[0]) / 2) - 1])
-        peakPoint = np.argmax(firsthalf)
-        return peakPoint
-
-    def collect_peaks(self, reals, imags, sample_rate, fc, NFFT, peakPoint):
-        numFFTs = int(len(reals) / NFFT)
-        maxValues = np.zeros(numFFTs)
-        averageValues = np.zeros(numFFTs)
-        positions = np.zeros(numFFTs)
-        errors = 0
-        for i in range(0, numFFTs):  # len(reals)/NFFT
-
-            iq_samples = np.array(
-                [(re + 1j * co) for re, co in zip(reals[i * NFFT:(i + 1) * NFFT], imags[i * NFFT:(i + 1) * NFFT])])
+            iq_samples = np.array([(re + 1j * co) for re, co in zip(reals[i * NFFT:(i + 1) * NFFT], imags[i * NFFT:(i + 1) * NFFT])])
             x = plt.psd(iq_samples, NFFT=NFFT, Fs=sample_rate / 1e6, Fc=fc)
 
             np.set_printoptions(threshold=np.infty)
-
             firsthalf = 10 * np.log10(x[0][0:int(1 * len(x[0]) / 2) - 1])
-            self.peakValues[self.numOfPoints] = firsthalf[peakPoint]
-            self.numOfPoints += 1
+            print(np.max(firsthalf))
+            #print(positions[i])
+        #print (positions)
+        return np.max(firsthalf)
 
-    def post_process(self, filename):
-        mean = np.mean(self.peakValues[:self.numOfPoints])
-        variance = np.var(self.peakValues[:self.numOfPoints])
-        std = np.std(self.peakValues[:self.numOfPoints])
-        self.meanDict[filename] = mean
-        self.varianceDict[filename] = variance
 
-    def __init__(self):
-        self.peakValues = np.zeros(256)
-
+import weakref
 class RTL_IQ_analysis:
     def __init__(self, iqfile, datatype, block_length, sample_rate):
         self.iqfile = iqfile
@@ -71,12 +112,12 @@ class RTL_IQ_analysis:
         self.sample_rate = sample_rate
         self.hfile = open(self.iqfile, "rb")
         self.call_count = 0
-
         def on_die(killed_ref):
             print('on_die')
             self.hfile.close()
+        self._del_ref = weakref.ref(self, on_die)
 
-
+    #i / (255 / 2) - 1, q / (255 / 2) - 1
     def read_samples(self):
         self.hfile.seek(self.block_length * self.call_count)
         self.call_count += 1
@@ -85,8 +126,8 @@ class RTL_IQ_analysis:
         except MemoryError:
             print("End of File")
         else:
-            reals = scipy.array([(r) for index, r in enumerate(iq) if index % 2 == 0])
-            imags = scipy.array([(i) for index, i in enumerate(iq) if index % 2 == 1])
+            reals = scipy.array([(r / (255.0 / 2) - 1) for index, r in enumerate(iq) if index % 2 == 0])
+            imags = scipy.array([(i / (255.0 / 2) - 1) for index, i in enumerate(iq) if index % 2 == 1])
 
         # self.hfile.close()
         return reals, imags
@@ -109,7 +150,7 @@ def parse_gps_time(filename):
 
 def process_iq(filename, NFFT = 128):
     datatype = scipy.uint8
-    block_length = NFFT * 50
+    block_length = NFFT
     # block_offset = NFFT*i #<---change to random offsets between 0 to (max_no_of_iq_samples - block_length)
     sample_rate = 2e6
     fc = 916e6
@@ -121,10 +162,8 @@ def process_iq(filename, NFFT = 128):
     for j in range(1):
         r, i = rtl.read_samples()
         # print (r,i)
-        peakPoint = utils.get_peak_pos(r, i, sample_rate, fc, NFFT)
-        utils.collect_peaks(r, i, sample_rate, fc, NFFT, peakPoint)
-        utils.post_process(filename)
-        return utils.peakValues[:utils.numOfPoints]
+        peakPower = np.array([utils.plot_fft(r, i, sample_rate, fc, NFFT)])
+    return peakPower
 
 
 def determine_relevant_timestamp(gpgga_df):
@@ -160,7 +199,8 @@ def determine_relevant_timestamp(gpgga_df):
                         sensor_loc_y = sensor_df[sensor_df['dir_name'] == dir]['y'].values[0]
                         temp_df.loc[index] = [i, j, sensor_loc_x, sensor_loc_y, np.mean(peak_values), np.std(peak_values)]
                         index += 1
-                    except:
+                    except Exception as e:
+                        print('Exception', e)
                         pass
     temp_df['std'] = 1
     temp_df['std'] = temp_df.groupby(['sensor_loc_x', 'sensor_loc_y'])['std'].transform('mean')

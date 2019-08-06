@@ -33,10 +33,29 @@ from scipy.stats import norm
 #from utility import generate_intruders, generate_intruders_2
 #from skimage.feature import peak_local_max
 #import itertools
-from localization_error import LocalizationError
 
 RTL_SDR_NOISE_FLOOR = -80
-WIFI_NOISE_FLOOR = -80
+WIFI_NOISE_FLOOR = -50
+
+def q_lookup_array(q_params, lookup_table):
+    q_params[q_params > 8.3] = 8.3 - 0.0001
+    index = (q_params * 10000).astype(int)
+    #print(index)
+    return lookup_table[index]
+
+def q_lookup(q_param, lookup_table):
+    '''The lookup table, devide range [0, 8.3], the bin size is 0.0001
+       The definition of this lookup table is given at the __init__ function of class SelectSensor
+    Params:
+        q_param (flaot):
+        lookup_table (np.ndarray, n=1):
+    Return:
+        (float)
+    '''
+    if q_param > 8.3:
+        return 0.
+    index = int(q_param*10000)
+    return lookup_table[index]
 
 class SelectSensor:
     '''Near-optimal low-cost sensor selection
@@ -86,7 +105,7 @@ class SelectSensor:
         self.primary_trans = []                # introduce the legal transmitters as secondary user in the Mobicom version
         self.secondary_trans = []              # they include primary and secondary
         self.lookup_table_q = np.array([1. - 0.5*(1. + math.erf(i/1.4142135623730951)) for i in np.arange(0, 8.3, 0.0001)])
-        self.lookup_table_norm = norm(0, 1).pdf(np.arange(0, 39, 0.0001))  # norm(0, 1).pdf(39) = 0
+        #self.lookup_table_norm = norm(0, 1).pdf(np.arange(0, 39, 0.0001))  # norm(0, 1).pdf(39) = 0
         self.counter = Counter()               # timer
         self.debug  = debug                    # debug mode do visulization stuff, which is time expensive
         self.present = np.zeros(self.grid_len * self.grid_len)
@@ -616,11 +635,33 @@ class SelectSensor:
 
                 dot_of_candidate = ((transmitter_j.mean_vec[candidate] - transmitter_i.mean_vec[candidate]) ** 2) / self.covariance[candidate][candidate]
                 dot_of_new_subset = dot_of_selected[i][j] + dot_of_candidate
-                prob_i += norm.sf(0.5 * math.sqrt(dot_of_new_subset))
+                prob_i += q_lookup(0.5 * math.sqrt(dot_of_new_subset), self.lookup_table_q)
 
             prob_error += prob_i * self.grid_priori[i_x][i_y]
         return 1 - prob_error
 
+    def o_t_approximate3(self, dot_of_selected, candidate):
+        '''Not the accurate O_T, but apprioximating O_T. So that we have a good propertiy of submodular
+        Args:
+            dot_of_selected (np.ndarray): stores the np.dot(np.dot(pj_pi, sub_cov_inv), pj_pi)) of sensors already selected
+                                          in previous iterations. shape=(m, m) where m is the number of hypothesis (grid_len^2)
+            candidate (int):              a new candidate
+        Return:
+            (float): the approximation of O_acc
+        '''
+        mean_vecs = [transmitter_i.mean_vec[candidate] for transmitter_i in self.transmitters]
+        mean_pairs = np.array(np.meshgrid(mean_vecs, mean_vecs)).T.reshape(2, -1)
+        #print(mean_pairs.shape)
+        diff_mean = np.square(mean_pairs[1, :] - mean_pairs[0, :])
+        diff_mean = diff_mean.reshape(len(self.transmitters), -1)
+        dots_of_candidate = diff_mean / self.covariance[candidate][candidate]
+        new_dots = dot_of_selected + dots_of_candidate
+        #print(new_dots)
+        probs_i = q_lookup_array(0.5 * np.sqrt(new_dots), self.lookup_table_q)
+        probs_i = np.sum(probs_i, axis=1).reshape(-1, self.grid_len)
+        prob_error = np.multiply(probs_i, self.grid_priori)
+        prob_error = np.sum(prob_error)
+        return 1 - prob_error
 
     def update_dot_of_selected(self, dot_of_selected, best_candidate):
         '''Update dot_of_selected after a new sensor is seleted
@@ -731,7 +772,7 @@ class SelectSensor:
 
         while cost < budget and complement_index:
             start = time.time()
-            candidate_result = Parallel(n_jobs=cores)(delayed(self.o_t_approximate2)(dot_of_selected, candidate) for candidate in complement_index)
+            candidate_result = Parallel(n_jobs=cores)(delayed(self.o_t_approximate3)(dot_of_selected, candidate) for candidate in complement_index)
 
             best_candidate = complement_index[0]
             maximum = candidate_result[0]
@@ -792,7 +833,7 @@ class SelectSensor:
                     candidiate_index.append(complement_sensors[i].index)
                 counter += 1
 
-                candidate_results = Parallel(n_jobs=cores)(delayed(self.o_t_approximate2)(dot_of_selected, candidate) for candidate in candidiate_index)
+                candidate_results = Parallel(n_jobs=cores)(delayed(self.o_t_approximate3)(dot_of_selected, candidate) for candidate in candidiate_index)
 
                 for i, j in zip(range(update, update_end), range(0, cores)):  # the two range might be different, if the case, follow the first range
                     complement_sensors[i].gain_up_bound = candidate_results[j] - base_ot_approx  # update the upper bound of gain
@@ -803,11 +844,12 @@ class SelectSensor:
                         new_base_ot_approx = candidate_results[j]
 
                 if update_end < len(complement_sensors) and max_gain > complement_sensors[update_end].gain_up_bound:   # where the lazy happens
-                    #print('\n***LAZY!***\n', cost, (update, update_end), len(complement_sensors), '\n')
+                    print('\n***LAZY!***\n', cost, (update, update_end), len(complement_sensors), best_candidate, '\n')
                     break
                 update += cores
             self.update_dot_of_selected(dot_of_selected, best_candidate)
-            print('cost = {}, time = {}, best = {}, o_t = {}'.format(cost+1, time.time()-start, best_candidate, new_base_ot_approx))
+            #print('cost = {}, time = {}, best = {}, o_t = {}'.format(cost+1, time.time()-start, best_candidate, new_base_ot_approx))
+            print('cost = ', cost + 1, 'time = ', time.time() - start, 'best = ', best_candidate, 'o_t_approx = ', new_base_ot_approx)
             base_ot_approx = new_base_ot_approx             # update the base o_t_approx for the next iteration
             ordered_insert(subset_index, best_candidate)    # guarantee subset_index always be sorted here
             subset_to_compute.append(copy.deepcopy(subset_index))
@@ -943,6 +985,88 @@ class SelectSensor:
         for i in range(len(subset_results)):
             plot_data[i][2] = subset_results[i]
         return plot_data
+
+    def select_offline_greedy_p_lazy_cpu_old(self, budget, cores):
+        '''(Parallel + Lazy greedy) Select a subset of sensors greedily. offline + homo version using ** CPU **
+        Attributes:
+            budget (int): budget constraint
+            cores (int): number of cores for parallelzation
+        Return:
+            (list): an element is [str, int, float],
+                    where str is the list of subset_index, int is # of sensors, float is O_T
+        '''
+        counter = 0
+        base_ot_approx = 1 - 0.5 * len(self.transmitters)
+        plot_data = []
+        cost = 0  # |T| in the paper
+        subset_index = []  # T   in the paper
+        complement_sensors = copy.deepcopy(self.sensors)  # S\T in the paper
+        subset_to_compute = []
+        while cost < budget and complement_sensors:
+            best_candidate = -1
+            best_sensor = None
+            complement_sensors.sort()  # sorting the gain descendingly
+            new_base_ot_approx = 0
+            # for sensor in complement_sensors:
+            #    print((sensor.index, sensor.gain_up_bound), end=' ')
+            update, max_gain = 0, 0
+            while update < len(complement_sensors):
+                update_end = update + cores if update + cores <= len(complement_sensors) else len(
+                    complement_sensors)
+                candidiate_index = []
+                for i in range(update, update_end):
+                    candidiate_index.append(complement_sensors[i].index)
+                counter += 1
+                candidate_results = Parallel(n_jobs=cores)(
+                    delayed(self.inner_greedy_cpu)(subset_index, candidate) for candidate in candidiate_index)
+                # an element of candidate_results is a tuple - (index, o_t_approx, subsetlist)
+                for i, j in zip(range(update, update_end), range(0,
+                                                                 cores)):  # the two range might be different, if the case, follow the first range
+                    complement_sensors[i].gain_up_bound = candidate_results[j][
+                                                              1] - base_ot_approx  # update the upper bound of gain
+                    if complement_sensors[i].gain_up_bound > max_gain:
+                        max_gain = complement_sensors[i].gain_up_bound
+                        best_candidate = candidate_results[j][0]
+                        best_sensor = complement_sensors[i]
+                        new_base_ot_approx = candidate_results[j][1]
+
+                if update_end < len(complement_sensors) and max_gain > complement_sensors[
+                    update_end].gain_up_bound:  # where the lazy happens
+                    print('\n***LAZY!***\n', cost, (update, update_end), len(complement_sensors), '\n')
+                    break
+                update += cores
+            base_ot_approx = new_base_ot_approx  # update the base o_t_approx for the next iteration
+            print(best_candidate, base_ot_approx, '\n\n')
+            ordered_insert(subset_index, best_candidate)  # guarantee subset_index always be sorted here
+            subset_to_compute.append(copy.deepcopy(subset_index))
+            plot_data.append([len(subset_index), base_ot_approx,
+                              0])  # don't compute real o_t now, delay to after all the subsets are selected
+            complement_sensors.remove(best_sensor)
+            cost += 1
+            if base_ot_approx > 0.9999999999999:
+                break
+        print('number of o_t_approx', counter)
+        #return  # for scalability test, we don't need to compute the real Ot in the scalability test.
+        subset_results = Parallel(n_jobs=len(plot_data))(
+            delayed(self.inner_greedy_real_ot_cpu)(subset_index) for subset_index in subset_to_compute)
+
+        for i in range(len(subset_results)):
+            plot_data[i][2] = subset_results[i]
+
+        return plot_data
+
+    def inner_greedy_cpu(self, subset_index, candidate):
+        '''Inner loop for selecting candidates
+        Args:
+            subset_index (list):
+            candidate (int):
+        Return:
+            (tuple): (index, o_t_approx, new subset_index)
+        '''
+        subset_index2 = copy.deepcopy(subset_index)
+        ordered_insert(subset_index2, candidate)  # guarantee subset_index always be sorted here
+        o_t = self.o_t_approximate(subset_index2)
+        return (candidate, o_t, subset_index2)
 
     # @profile
     def select_offline_GA_old(self, budget, cores):
@@ -1722,6 +1846,8 @@ class SelectSensor:
         self.grid_posterior = np.multiply(likelihood, self.grid_priori.flatten())
         self.grid_posterior = np.multiply(self.grid_posterior, self.present)
         denominator = np.sum(self.grid_posterior)
+        if denominator == 0:
+            self.grid_posterior = np.full((self.grid_len, self.grid_len), 1 / (self.grid_len * self.grid_len))
         self.grid_posterior /= denominator
         #self.grid_posterior = np.reshape(self.grid_posterior, (-1, self.grid_len))
         # for trans in self.transmitters:
@@ -1738,7 +1864,8 @@ class SelectSensor:
         distance = np.sqrt(np.multiply(x_dist, x_dist) + np.multiply(y_dist, y_dist))
         #distance = np.reshape(distance, (-1, self.grid_len))
         error = np.sum(np.multiply(distance, self.grid_posterior))
-
+        #np.set_printoptions(threshold=np.infty)
+        #print(self.grid_posterior)
 
         # for trans in self.transmitters:
         #     distance = np.sqrt((true_x - trans.x) ** 2 + (true_y - trans.y) ** 2)

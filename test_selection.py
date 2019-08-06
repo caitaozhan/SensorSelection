@@ -2,7 +2,6 @@
 '''
 
 from select_sensor import SelectSensor
-from localization_error import LocalizationError
 try:
     from cuda_kernals import o_t_approx_kernal, o_t_kernal, o_t_approx_dist_kernal, \
                              o_t_approx_kernal2, o_t_approx_dist_kernal2, \
@@ -37,7 +36,7 @@ PRIMARY_INTRUDERS = 2
 PRIMARY_SECONDARY_INTRUDERS = 3
 
 RTL_SDR_NOISE_FLOOR = -80
-WIFI_NOISE_FLOOR = -65
+WIFI_NOISE_FLOOR = -55
 
 def test_ipsn_homo(algorithms=BASELINE_ALL):
     '''2019 IPSN version
@@ -201,12 +200,16 @@ def gen_data(iteration, num_sensors=100, subdir = 'dataSplat/1600-400/', grid_le
     f.close()
 
     hypo_template = subdir + 'tx_{:04d}_pathloss.txt'
+    hypo_template2 = subdir + 'tx_{:d}_pathloss.txt'
     hypo = None
     hypothesis_file = open(hypothesis_file, 'w')
     for i in range(1, grid_len * grid_len + 1):
         if i % 10 == 0:
             print(i, end=' ')
-        hypo = pd.read_csv(hypo_template.format(i), delimiter=' ', header=None)
+        try:
+            hypo = pd.read_csv(hypo_template.format(i), delimiter=' ', header=None)
+        except:
+            hypo = pd.read_csv(hypo_template2.format(i), delimiter=' ', header=None)
         #print(hypo)
         trans_x = (i - 1) // grid_len
         trans_y = (i - 1) % grid_len
@@ -547,14 +550,14 @@ def test_utah_baseline(algorithms, num_iterations=20):
 def test_weighted_utah_baseline(algorithms, num_iterations=10):
     grid_len = 14
     selectsensor = SelectSensor(grid_len)
-    cov_file_cur = 'cov'
-    sensor_file_cur = 'sensors'
-    intruder_hypo_file_cur = 'hypothesis'
+    cov_file_cur = 'utah/cov'
+    sensor_file_cur = 'utah/sensors'
+    intruder_hypo_file_cur = 'utah/hypothesis'
     #cov_file_cur = cov_file
     #sensor_file_cur = sensor_file
     #intruder_hypo_file_cur = intruder_hypo_file
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
-    selectsensor.rescale_intruder_hypothesis(noise_floor=WIFI_NOISE_FLOOR)
+    selectsensor.rescale_intruder_hypothesis(noise_floor=-60)
     # print(selectsensor.means)
     selectsensor.transmitters_to_array()        # for GPU
 
@@ -586,7 +589,7 @@ def test_weighted_utah_baseline(algorithms, num_iterations=10):
         true_tx = np.where(selectsensor.present == 1)[0]
         true_x = [i // grid_len for i in true_tx]
         true_y = [i % grid_len for i in true_tx]
-        print(true_tx, true_x, true_y)
+        #print(true_tx, true_x, true_y)
 
         for j in range(1, budget+1):
             error_AGA = np.zeros(budget + 1)
@@ -601,12 +604,14 @@ def test_weighted_utah_baseline(algorithms, num_iterations=10):
                     #print(results_WAGA[j][3], selectsensor.means_rescale.shape, trans, true_y[tno])
 
                     selectsensor.compute_conditional_error(trans, true_y[tno], results_WAGA[j-1][3])
-
+                    #np.set_printoptions(np.infty)
+                    #print(selectsensor.grid_posterior)
                     for x in range(selectsensor.grid_len):
                         for y in range(selectsensor.grid_len):
-                            distance = (x - trans) ** 2 + (y - true_y[tno]) ** 2
+                            distance = np.sqrt((x - trans) ** 2 + (y - true_y[tno]) ** 2)
                             distance += 0.5
                             error += selectsensor.grid_posterior[grid_len * x + y] * distance
+
                     #error_WAGA[j] = selectsensor.compute_conditional_error(trans, true_y[tno],
                 error_WAGA[j] = error
 
@@ -619,7 +624,7 @@ def test_weighted_utah_baseline(algorithms, num_iterations=10):
 
                     for x in range(selectsensor.grid_len):
                         for y in range(selectsensor.grid_len):
-                            distance = (x - trans) ** 2 + (y - true_y[tno]) ** 2
+                            distance = np.sqrt((x - trans) ** 2 + (y - true_y[tno]) ** 2)
                             distance += 0.5
                             error += selectsensor.grid_posterior[grid_len * x + y] * distance
 
@@ -633,7 +638,7 @@ def test_weighted_utah_baseline(algorithms, num_iterations=10):
 
                     for x in range(selectsensor.grid_len):
                         for y in range(selectsensor.grid_len):
-                            distance = (x - trans) ** 2 + (y - true_y[tno]) ** 2
+                            distance = np.sqrt((x - trans) ** 2 + (y - true_y[tno]) ** 2)
                             distance += 0.5
                             error += selectsensor.grid_posterior[grid_len * x + y] * distance
                 error_GA[j] = error
@@ -646,7 +651,7 @@ def test_weighted_utah_baseline(algorithms, num_iterations=10):
 
                     for x in range(selectsensor.grid_len):
                         for y in range(selectsensor.grid_len):
-                            distance = (x - trans) ** 2 + (y - true_y[tno]) ** 2
+                            distance = np.sqrt((x - trans) ** 2 + (y - true_y[tno]) ** 2)
                             distance += 0.5
                             error += selectsensor.grid_posterior[grid_len * x + y] * distance
                 error_COV[j] = error
@@ -660,7 +665,7 @@ def test_weighted_utah_baseline(algorithms, num_iterations=10):
 
                     for x in range(selectsensor.grid_len):
                         for y in range(selectsensor.grid_len):
-                            distance = (x - trans) ** 2 + (y - true_y[tno]) ** 2
+                            distance = np.sqrt((x - trans) ** 2 + (y - true_y[tno]) ** 2)
                             distance += 0.5
                             error += selectsensor.grid_posterior[grid_len * x + y] * distance
                 error_RAN[j] = error
@@ -1155,116 +1160,6 @@ def test_splat_opt():
 
 
 
-
-
-def test_splat_total_sensors():
-    '''AGA against varies total # of sensors
-    '''
-    config              = 'config/splat_config_40-50.json'
-    cov_file            = 'dataSplat/1600-50/cov'
-    sensor_file         = 'dataSplat/1600-50/sensors'
-    intruder_hypo_file  = 'dataSplat/1600-50/hypothesis'
-    selectsensor = SelectSensor(config)
-    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()
-    results = selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2)
-    plots.save_data_AGA(results, 'plot_data_splat/fig4-homo-total-sensors/50-sensors')
-
-    config              = 'config/splat_config_40-100.json'
-    cov_file            = 'dataSplat/1600-100/cov'
-    sensor_file         = 'dataSplat/1600-100/sensors'
-    intruder_hypo_file  = 'dataSplat/1600-100/hypothesis'
-    selectsensor = SelectSensor(config)
-    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()
-    results = selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2)
-    plots.save_data_AGA(results, 'plot_data_splat/fig4-homo-total-sensors/100-sensors')
-
-    config              = 'config/splat_config_40.json'
-    cov_file            = 'dataSplat/1600/cov'
-    sensor_file         = 'dataSplat/1600/sensors'
-    intruder_hypo_file  = 'dataSplat/1600/hypothesis'
-    selectsensor = SelectSensor(config)
-    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()
-    results = selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2)
-    plots.save_data_AGA(results, 'plot_data_splat/fig4-homo-total-sensors/200-sensors')
-
-    config              = 'config/splat_config_40-400.json'
-    cov_file            = 'dataSplat/1600-400/cov'
-    sensor_file         = 'dataSplat/1600-400/sensors'
-    intruder_hypo_file  = 'dataSplat/1600-400/hypothesis'
-    selectsensor = SelectSensor(config)
-    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()
-    results = selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2)
-    plots.save_data_AGA(results, 'plot_data_splat/fig4-homo-total-sensors/400-sensors')
-
-    config              = 'config/splat_config_40-800.json'
-    cov_file            = 'dataSplat/1600-800/cov'
-    sensor_file         = 'dataSplat/1600-800/sensors'
-    intruder_hypo_file  = 'dataSplat/1600-800/hypothesis'
-    selectsensor = SelectSensor(config)
-    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()
-    results = selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2)
-    plots.save_data_AGA(results, 'plot_data_splat/fig4-homo-total-sensors/800-sensors')
-
-
-def test_splat_hetero(algorithms):
-    '''The baseline (GA, random, coverage), without background, heterogeneous, 40 x 40 grid
-    '''
-    config              = 'config/splat_config_40.json'
-    cov_file            = 'dataSplat/1600-hetero/cov'
-    sensor_file         = 'dataSplat/1600-hetero/sensors'
-    intruder_hypo_file  = 'dataSplat/1600-hetero/hypothesis-25'
-    selectsensor = SelectSensor(config)
-    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()        # for GPU
-
-    if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:  # AGA
-        results = selectsensor.select_offline_greedy_hetero(30, 12, o_t_approx_kernal2)
-        plots.save_data(results, 'plot_data_splat/fig3-hetero/AGA')
-
-    if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
-        results = selectsensor.select_offline_random_hetero(50, 12)
-        plots.save_data(results, 'plot_data_splat/fig3-hetero/random')
-
-    if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
-        results = selectsensor.select_offline_coverage_hetero(50, 12)
-        plots.save_data(results, 'plot_data_splat/fig3-hetero/coverage')
-
-    if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:  # GA
-        results = selectsensor.select_offline_GA_hetero(30, 12)
-        plots.save_data(results, 'plot_data_splat/fig3-hetero/GA')
-
-
-def test_ipsn2():
-    '''2019 Mobicom version using data generated from IPSN
-    '''
-
-    cov_file           = 'dataSplat/1600/cov'
-    sensor_file        = 'dataSplat/1600/sensors'
-    intruder_hypo_file = 'dataSplat/1600/hypothesis'
-    legal_hypo_file    = 'dataSplat/1600/hypothesis_legal'
-    add_hypo_file      = 'dataSplat/1600/hypothesis_add'
-
-    selectsensor = SelectSensor('config/splat_config.json')
-    #selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-    selectsensor.init_data(cov_file, sensor_file, add_hypo_file)
-    #selectsensor.setup_legal_transmitters([123, 456, 789, 1357, 1248], legal_hypo_file)
-    #selectsensor.add_legal_and_intruder_hypothesis(legal_hypo_file, intruder_hypo_file, add_hypo_file)
-    #selectsensor.rescale_add_hypothesis()
-    selectsensor.rescale_intruder_hypothesis()
-    selectsensor.transmitters_to_array()
-    print(selectsensor.select_offline_greedy_lazy_gpu(20, 12, o_t_approx_kernal2))
-
 def test_splat_localization_single_intruder():
     config              = 'config/splat_config_40.json'
     cov_file            = 'dataSplat/homogeneous-100/cov'
@@ -1285,14 +1180,11 @@ def test_splat_localization_single_intruder():
 
 def test_splat_scalability(large = False):
     if large is False:
-        cov_file = 'dataSplat/1600-100/cov'
-        sensor_file = 'dataSplat/1600-100/sensors'
-        intruder_hypo_file = 'dataSplat/1600-100/hypothesis'
-        selectsensor = SelectSensor(40)
-        selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
-        selectsensor.rescale_intruder_hypothesis()
-        selectsensor.transmitters_to_array()        # for GPU
-        budget = 20
+        cov_file = 'dataSplat/100/cov0'
+        sensor_file = 'dataSplat/100/sensors0'
+        intruder_hypo_file = 'dataSplat/100/hypothesis0'
+        selectsensor = SelectSensor(10)
+        budget = 10
     else:
         config = 'config/splat_config_64.json'
         cov_file = 'dataSplat/4096/cov'
@@ -1304,12 +1196,12 @@ def test_splat_scalability(large = False):
         # selectsensor.transmitters_to_array()  # for GPU
         budget = 30
 
+    gen_data(1, 100, subdir='dataSplat/100/', grid_len=10)
     selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
     selectsensor.rescale_intruder_hypothesis()
     print('initial priori = ', selectsensor.grid_priori[0][0])
     # print(selectsensor.means)
     selectsensor.transmitters_to_array()  # for GPU
-    budget = 20
         # selectsensor.transmitters_to_array()
     AGA_small_start_opt = time.time()
     results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2)
@@ -1322,6 +1214,10 @@ def test_splat_scalability(large = False):
     AGA_small_end_no_opt = time.time()
     no_opt_time = AGA_small_end_opt - AGA_small_end_no_opt
     print('no_opt_time = ', no_opt_time)
+
+    AGA_cpu_end = selectsensor.select_offline_greedy_p_lazy_cpu_old(budget, 20)
+    cpu_end_time = time.time()
+    cpu_time = cpu_end_time - no_opt_time
 
     # AGA_cpu_start = time.time()
     # results_cpu = selectsensor.select_offline_greedy_p_lazy_cpu(20, 20)
@@ -1408,7 +1304,7 @@ def test_outdoor_baseline(algorithms):
     # sensor_file_cur = sensor_file
     # intruder_hypo_file_cur = intruder_hypo_file
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
-    selectsensor.rescale_intruder_hypothesis(noise_floor=-10)
+    selectsensor.rescale_intruder_hypothesis(noise_floor=-40)
     # print(selectsensor.means)
     selectsensor.transmitters_to_array()  # for GPU
     budget = 15
@@ -1433,6 +1329,115 @@ def test_outdoor_baseline(algorithms):
     for i in range(budget):
         print(i, results_AGA[i-1][2], results_GA[i-1][1], results_RAN[i-1][1], results_COV[i-1][1])
 
+def test_outdoor_weighted(algorithms):
+    grid_len = 10
+    selectsensor = SelectSensor(grid_len)
+    cov_file_cur = 'cov'
+    sensor_file_cur = 'sensor'
+    intruder_hypo_file_cur = 'hypothesis'
+    budget = 15
+    # cov_file_cur = cov_file
+    # sensor_file_cur = sensor_file
+    # intruder_hypo_file_cur = intruder_hypo_file
+    selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
+    selectsensor.rescale_intruder_hypothesis(noise_floor=-40)
+    # print(selectsensor.means)
+    selectsensor.transmitters_to_array()        # for GPU
+
+    if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+        results_WAGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_dist_kernal2)
+
+    if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+        results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2)
+
+    if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+        results_GA = selectsensor.select_offline_GA(budget, o_t_iter_kernal)
+    # plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
+
+    if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
+        results_RAN = selectsensor.select_offline_random(budget, 20)
+        # plots.save_data(results_RAN, 'plot_data_splat/fig1-homo/random')
+
+    if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
+        results_COV = selectsensor.select_offline_coverage(budget, 20)
+
+    true_x = np.random.choice(range(grid_len), size=100, replace=True)
+    true_y = np.random.choice(range(grid_len), size=100, replace=True)
+    for j in range(1, budget+1):
+        error_AGA = np.zeros(budget + 1)
+        error_WAGA = np.zeros(budget + 1)
+        error_GA = np.zeros(budget + 1)
+        error_COV = np.zeros(budget + 1)
+        error_RAN = np.zeros(budget + 1)
+
+        for tno, trans in enumerate(true_x):
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+                error_WAGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                    results_WAGA[j-1][3])
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+                error_AGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                results_AGA[j-1][3])
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+                error_GA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                   results_GA[j-1][2])
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+                error_COV[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                       results_COV[j-1][2])
+            if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+                error_RAN[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
+                                                                   results_RAN[j-1][2])
+        error_AGA /= 100
+        error_WAGA /= 100
+        error_GA /= 100
+        error_COV /= 100
+        error_RAN /= 100
+        #print(j, error_AGA[j], error_WAGA[j], error_GA[j], error_COV[j], error_RAN[j])
+        print(j, end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
+            print(error_WAGA[j], end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
+            print(error_AGA[j], end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
+            print(error_GA[j], end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
+            #print(cumul_RAN, results_RAN[i][1])
+            print(error_RAN[j], end=' ')
+        if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
+            print(error_COV[j], end=' ')
+        print('')
+
+def test_large():
+    cov_file = 'dataSplat/4096/cov'
+    sensor_file = 'dataSplat/4096/sensors'
+    intruder_hypo_file = 'dataSplat/4096/hypothesis'
+    selectsensor = SelectSensor(64)
+    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
+    budget = 20
+    AGA_cpu_end = selectsensor.select_offline_greedy_p_lazy_cpu(budget, 20)
+
+def test_small():
+    selectsensor = SelectSensor(10)
+    cov_file = 'dataSplat/100/cov1'
+    sensor_file = 'dataSplat/100/sensors1'
+    intruder_hypo_file = 'dataSplat/100/hypothesis1'
+    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
+    selectsensor.rescale_intruder_hypothesis()
+    selectsensor.transmitters_to_array()  # for GPU
+    budget = 10
+    AGA_cpu_end = selectsensor.select_offline_greedy_p_lazy_cpu(budget, 20)
+
+def test_standard():
+    selectsensor = SelectSensor(40)
+    cov_file = 'dataSplat/1600-100/cov'
+    sensor_file = 'dataSplat/1600-100/sensors'
+    intruder_hypo_file = 'dataSplat/1600-100/hypothesis'
+    selectsensor.init_data(cov_file, sensor_file, intruder_hypo_file)
+    selectsensor.rescale_intruder_hypothesis()
+    selectsensor.transmitters_to_array()  # for GPU
+    budget = 20
+    AGA_cpu_end = selectsensor.select_offline_greedy_p(budget, 20)
+
+
 if __name__ == '__main__':
     #test_map()
     # ipsn_homo()
@@ -1447,10 +1452,11 @@ if __name__ == '__main__':
     #test_splat(False, 3)
     #test_utah_baseline(BASELINE_ALL, 20)
     #test_dartmouth_baseline(BASELINE_ALL)
-    #test_weighted_utah_baseline(BASELINE_ALL, 100)
+    #test_weighted_utah_baseline(BASELINE_ALL, 10)
     #test_splat_opt()
     #test_splat_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)
-    test_outdoor_baseline(BASELINE_ALL)
+    #test_outdoor_baseline(BASELINE_ALL)
+    #test_outdoor_weighted(BASELINE_ALL)
     #test_weighted_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=1)
     #test_weighted_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=10)
     #test_splat_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)
@@ -1458,6 +1464,7 @@ if __name__ == '__main__':
     #test_splat_total_sensors()
     #test_splat_hetero(0)
     #test_approx_ratio(STD_INSTANCE, num_iterations=1)
-
+    #test_small()
     #test_update_hypothesis()
     #test_varying_sensor_density(BASELINE_ALL, 20)
+    test_standard()
