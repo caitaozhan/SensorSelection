@@ -164,7 +164,6 @@ def test_weighted_ipsn(algorithms=BASELINE_ALL):
         print('')
 
 
-from itertools import cycle
 def gen_data(iteration, num_sensors=100, subdir = 'dataSplat/1600-400/', grid_len = 40, hetero=False):
     sensor_file = subdir + 'sensors' + str(iteration)
     cov_file = subdir + 'cov' + str(iteration)
@@ -1158,8 +1157,6 @@ def test_splat_opt():
 
         print(j, mean_GA, mean_OPT)
 
-
-
 def test_splat_localization_single_intruder():
     config              = 'config/splat_config_40.json'
     cov_file            = 'dataSplat/homogeneous-100/cov'
@@ -1297,37 +1294,32 @@ def test_approx_ratio(size_instance, num_iterations = 1):
 def test_outdoor_baseline(algorithms):
     grid_len = 10
     selectsensor = SelectSensor(grid_len)
-    cov_file_cur = 'cov'
-    sensor_file_cur = 'sensor'
-    intruder_hypo_file_cur = 'hypothesis'
-    # cov_file_cur = cov_file
-    # sensor_file_cur = sensor_file
-    # intruder_hypo_file_cur = intruder_hypo_file
+    cov_file_cur = '10.6.testbed.inter-ildw-sub/cov'
+    sensor_file_cur = '10.6.testbed.inter-ildw-sub/sensors'
+    intruder_hypo_file_cur = '10.6.testbed.inter-ildw-sub/hypothesis'
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
-    selectsensor.rescale_intruder_hypothesis(noise_floor=-40)
-    # print(selectsensor.means)
+    selectsensor.rescale_intruder_hypothesis(noise_floor=-48)
     selectsensor.transmitters_to_array()  # for GPU
-    budget = 15
+    budget = 18
     if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
-        # selectsensor.transmitters_to_array()
-        results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2)
+        results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 10, o_t_approx_kernal2)
         # print(results_AGA)
         # plots.save_data(results_AGA, 'plot_data_splat/fig1-homo/GA')
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:  # GA
-        # selectsensor.transmitters_to_array()
         results_GA = selectsensor.select_offline_GA(budget, o_t_iter_kernal)
         # plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
-        results_RAN = selectsensor.select_offline_random(budget, 20)
+        results_RAN = selectsensor.select_offline_random(budget, 10)
         # plots.save_data(results_RAN, 'plot_data_splat/fig1-homo/random')
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
-        results_COV = selectsensor.select_offline_coverage(budget, 20)
+        results_COV = selectsensor.select_offline_coverage(budget, 10)
 
     for i in range(budget):
-        print(i, results_AGA[i-1][2], results_GA[i-1][1], results_RAN[i-1][1], results_COV[i-1][1])
+        print(i, results_AGA[i][2], results_GA[i][1], results_RAN[i][1], results_COV[i][1])
+
 
 def test_outdoor_weighted(algorithms):
     grid_len = 10
@@ -1424,7 +1416,7 @@ def test_small():
     selectsensor.rescale_intruder_hypothesis()
     selectsensor.transmitters_to_array()  # for GPU
     budget = 10
-    AGA_cpu_end = selectsensor.select_offline_greedy_p_lazy_cpu(budget, 20)
+    AGA_cpu_end = selectsensor.select_offline_greedy_p_lazy_cpu(budget, 10)
 
 def test_standard():
     selectsensor = SelectSensor(40)
@@ -1435,7 +1427,7 @@ def test_standard():
     selectsensor.rescale_intruder_hypothesis()
     selectsensor.transmitters_to_array()  # for GPU
     budget = 20
-    AGA_cpu_end = selectsensor.select_offline_greedy_p(budget, 20)
+    AGA_cpu_end = selectsensor.select_offline_greedy_p(budget, 10)
 
 
 if __name__ == '__main__':
@@ -1455,7 +1447,9 @@ if __name__ == '__main__':
     #test_weighted_utah_baseline(BASELINE_ALL, 10)
     #test_splat_opt()
     #test_splat_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)
-    #test_outdoor_baseline(BASELINE_ALL)
+    
+    test_outdoor_baseline(BASELINE_ALL)
+    
     #test_outdoor_weighted(BASELINE_ALL)
     #test_weighted_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=1)
     #test_weighted_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=10)
@@ -1464,7 +1458,7 @@ if __name__ == '__main__':
     #test_splat_total_sensors()
     #test_splat_hetero(0)
     #test_approx_ratio(STD_INSTANCE, num_iterations=1)
-    #test_small()
+    # test_small()
     #test_update_hypothesis()
     #test_varying_sensor_density(BASELINE_ALL, 20)
-    test_standard()
+    # test_standard()
