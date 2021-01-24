@@ -1,0 +1,3 @@
+1) Do an interpolation using ILDW (proposed in the IPSN20 paper) to get full data.
+   The collected data is 100 x 18, the full data is 100 x 100). 18 is the number of sensors
+2) Select a subset of 18 random sensors (different from the original 18 sensors deployed in the testbed)
