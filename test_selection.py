@@ -1324,34 +1324,30 @@ def test_outdoor_baseline(algorithms):
 def test_outdoor_weighted(algorithms):
     grid_len = 10
     selectsensor = SelectSensor(grid_len)
-    cov_file_cur = 'cov'
-    sensor_file_cur = 'sensor'
-    intruder_hypo_file_cur = 'hypothesis'
-    budget = 15
-    # cov_file_cur = cov_file
-    # sensor_file_cur = sensor_file
-    # intruder_hypo_file_cur = intruder_hypo_file
+    cov_file_cur = '10.6.testbed.inter-ildw-sub/cov'
+    sensor_file_cur = '10.6.testbed.inter-ildw-sub/sensors'
+    intruder_hypo_file_cur = '10.6.testbed.inter-ildw-sub/hypothesis'
+    budget = 18
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
-    selectsensor.rescale_intruder_hypothesis(noise_floor=-40)
-    # print(selectsensor.means)
+    selectsensor.rescale_intruder_hypothesis(noise_floor=-48)
     selectsensor.transmitters_to_array()        # for GPU
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
-        results_WAGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_dist_kernal2)
+        results_WAGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 10, o_t_approx_dist_kernal2)
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_AGA:
-        results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 20, o_t_approx_kernal2)
+        results_AGA = selectsensor.select_offline_greedy_lazy_gpu(budget, 10, o_t_approx_kernal2)
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
         results_GA = selectsensor.select_offline_GA(budget, o_t_iter_kernal)
     # plots.save_data(results_GA, 'plot_data_splat/fig1-homo/GA')
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:  # Random
-        results_RAN = selectsensor.select_offline_random(budget, 20)
+        results_RAN = selectsensor.select_offline_random(budget, 10)
         # plots.save_data(results_RAN, 'plot_data_splat/fig1-homo/random')
 
     if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:  # Coverage
-        results_COV = selectsensor.select_offline_coverage(budget, 20)
+        results_COV = selectsensor.select_offline_coverage(budget, 10)
 
     true_x = np.random.choice(range(grid_len), size=100, replace=True)
     true_y = np.random.choice(range(grid_len), size=100, replace=True)
@@ -1363,6 +1359,7 @@ def test_outdoor_weighted(algorithms):
         error_RAN = np.zeros(budget + 1)
 
         for tno, trans in enumerate(true_x):
+            print(f'budget={j}, tno={tno}')
             if algorithms == BASELINE_ALL or algorithms == BASELINE_WAGA:
                 error_WAGA[j] += selectsensor.compute_conditional_error(trans, true_y[tno],
                                                                     results_WAGA[j-1][3])
@@ -1392,7 +1389,6 @@ def test_outdoor_weighted(algorithms):
         if algorithms == BASELINE_ALL or algorithms == BASELINE_GA:
             print(error_GA[j], end=' ')
         if algorithms == BASELINE_ALL or algorithms == BASELINE_RAN:
-            #print(cumul_RAN, results_RAN[i][1])
             print(error_RAN[j], end=' ')
         if algorithms == BASELINE_ALL or algorithms == BASELINE_COV:
             print(error_COV[j], end=' ')
@@ -1448,9 +1444,10 @@ if __name__ == '__main__':
     #test_splat_opt()
     #test_splat_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)
     
-    test_outdoor_baseline(BASELINE_ALL)
+    # test_outdoor_baseline(BASELINE_ALL)
     
-    #test_outdoor_weighted(BASELINE_ALL)
+    test_outdoor_weighted(BASELINE_ALL)
+
     #test_weighted_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=1)
     #test_weighted_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=10)
     #test_splat_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)

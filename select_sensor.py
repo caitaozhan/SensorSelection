@@ -1863,7 +1863,7 @@ class SelectSensor:
         y_dist = np.array([trans.y - true_y for trans in self.transmitters])
         distance = np.sqrt(np.multiply(x_dist, x_dist) + np.multiply(y_dist, y_dist))
         #distance = np.reshape(distance, (-1, self.grid_len))
-        error = np.sum(np.multiply(distance, self.grid_posterior))
+        error = np.sum(np.multiply(distance, self.grid_posterior))  # BUG found on 1/23/2021. Caitao doesn't what is going on here.
         #np.set_printoptions(threshold=np.infty)
         #print(self.grid_posterior)
 
