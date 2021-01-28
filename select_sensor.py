@@ -1818,10 +1818,11 @@ class SelectSensor:
                     coverage[x][y] += 1
 
 
-    def compute_conditional_error(self, true_x, true_y, subset_index):
+   def compute_conditional_error(self, true_x, true_y, subset_index):
         '''Use Bayes formula to update P(hypothesis): from prior to posterior
            After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
-           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
+           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_g
+aussian. It saves money
         Args:
             true_transmitter (Transmitter)
             subset_index (list)
@@ -1845,9 +1846,11 @@ class SelectSensor:
         #print(mean_vec_sub.shape, array_of_pdfs.shape, likelihood.shape)
         self.grid_posterior = np.multiply(likelihood, self.grid_priori.flatten())
         self.grid_posterior = np.multiply(self.grid_posterior, self.present)
+        #print('denominator = ', denominator)
         denominator = np.sum(self.grid_posterior)
         if denominator == 0:
-            self.grid_posterior = np.full((self.grid_len, self.grid_len), 1 / (self.grid_len * self.grid_len))
+            self.grid_posterior = np.full((self.grid_len, self.grid_len), 1.0 / (self.grid_len * self.grid_len))
+            denominator = np.sum(self.grid_posterior)
         self.grid_posterior /= denominator
         #self.grid_posterior = np.reshape(self.grid_posterior, (-1, self.grid_len))
         # for trans in self.transmitters:
@@ -1863,7 +1866,9 @@ class SelectSensor:
         y_dist = np.array([trans.y - true_y for trans in self.transmitters])
         distance = np.sqrt(np.multiply(x_dist, x_dist) + np.multiply(y_dist, y_dist))
         #distance = np.reshape(distance, (-1, self.grid_len))
-        error = np.sum(np.multiply(distance, self.grid_posterior))  # BUG found on 1/23/2021. Caitao doesn't what is going on here.
+        #print("Max values=", np.max(self.grid_posterior), np.max(distance))
+        self.grid_posterior = np.nan_to_num(self.grid_posterior)
+        error = np.sum(np.multiply(distance, self.grid_posterior.flatten()))
         #np.set_printoptions(threshold=np.infty)
         #print(self.grid_posterior)
 
@@ -1871,6 +1876,7 @@ class SelectSensor:
         #     distance = np.sqrt((true_x - trans.x) ** 2 + (true_y - trans.y) ** 2)
         #     error += self.grid_posterior[trans.x][trans.y] * distance
         return error
+
 
 
 
