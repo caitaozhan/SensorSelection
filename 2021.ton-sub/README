@@ -1,0 +1,6 @@
+This data is interpolated three times, each time is using a novel interpolation method proposed in the IPSN 2020 multi-tx localization paper.
+
+1. (100, 18)  --> (100, 100)
+2. (100, 100) --> (100, 400)
+ --- assume symmetry: (100, 400) --> (400, 100)
+3. (400, 100) --> (400, 400) 
