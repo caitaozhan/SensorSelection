@@ -1291,6 +1291,7 @@ def test_approx_ratio(size_instance, num_iterations = 1):
         print(np.mean(ot_approx[:, j]), end = ' ')
         print(np.std(ot_approx[:, j]))
 
+
 def test_outdoor_baseline(algorithms):
     grid_len = 10
     selectsensor = SelectSensor(grid_len)
@@ -1342,6 +1343,7 @@ def test_outdoor_weighted(algorithms):
     # sensor_file_cur = '10.6.testbed/sensors'
     # intruder_hypo_file_cur = '10.6.testbed/hypothesis'
 
+    # 20x20 interpolated data
     cov_file_cur = '2021.ton-sub/cov'
     sensor_file_cur = '2021.ton-sub/sensors'
     intruder_hypo_file_cur = '2021.ton-sub/hypothesis'

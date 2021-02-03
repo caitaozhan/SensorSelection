@@ -1818,11 +1818,10 @@ class SelectSensor:
                     coverage[x][y] += 1
 
 
-   def compute_conditional_error(self, true_x, true_y, subset_index):
+    def compute_conditional_error(self, true_x, true_y, subset_index):
         '''Use Bayes formula to update P(hypothesis): from prior to posterior
            After we add a new sensor and get a larger subset, the larger subset begins to observe data from true transmitter
-           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_g
-aussian. It saves money
+           An important update from update_hypothesis to update_hypothesis_2 is that we are not using attribute transmitter.multivariant_gaussian. It saves money
         Args:
             true_transmitter (Transmitter)
             subset_index (list)
@@ -1876,8 +1875,6 @@ aussian. It saves money
         #     distance = np.sqrt((true_x - trans.x) ** 2 + (true_y - trans.y) ** 2)
         #     error += self.grid_posterior[trans.x][trans.y] * distance
         return error
-
-
 
 
     def weighted_distance_priori(self, complement_index):
