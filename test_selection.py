@@ -1293,8 +1293,11 @@ def test_approx_ratio(size_instance, num_iterations = 1):
 
 
 def test_outdoor_baseline(algorithms):
-    grid_len = 10
-    selectsensor = SelectSensor(grid_len)
+    
+    ############################################################
+    # 10x10 interpolated data
+    # grid_len = 10
+    # selectsensor = SelectSensor(grid_len)
     # cov_file_cur = '10.6.testbed.inter-ildw-sub/cov'
     # sensor_file_cur = '10.6.testbed.inter-ildw-sub/sensors'
     # intruder_hypo_file_cur = '10.6.testbed.inter-ildw-sub/hypothesis'
@@ -1302,11 +1305,14 @@ def test_outdoor_baseline(algorithms):
     # cov_file_cur = '10.6.testbed/cov'
     # sensor_file_cur = '10.6.testbed/sensors'
     # intruder_hypo_file_cur = '10.6.testbed/hypothesis'
-    
+    ############################################################
     # 20x20 interpolated data
+    grid_len = 20
+    selectsensor = SelectSensor(grid_len)
     cov_file_cur = '2021.ton-sub/cov'
     sensor_file_cur = '2021.ton-sub/sensors'
     intruder_hypo_file_cur = '2021.ton-sub/hypothesis'
+    ############################################################
     
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
     selectsensor.rescale_intruder_hypothesis(noise_floor=-48)
@@ -1333,8 +1339,9 @@ def test_outdoor_baseline(algorithms):
 
 
 def test_outdoor_weighted(algorithms):
-    grid_len = 10
-    selectsensor = SelectSensor(grid_len)
+    ############################################################
+    # grid_len = 10
+    # selectsensor = SelectSensor(grid_len)
     # cov_file_cur = '10.6.testbed.inter-ildw-sub/cov'
     # sensor_file_cur = '10.6.testbed.inter-ildw-sub/sensors'
     # intruder_hypo_file_cur = '10.6.testbed.inter-ildw-sub/hypothesis'
@@ -1343,10 +1350,14 @@ def test_outdoor_weighted(algorithms):
     # sensor_file_cur = '10.6.testbed/sensors'
     # intruder_hypo_file_cur = '10.6.testbed/hypothesis'
 
+    ############################################################
     # 20x20 interpolated data
+    grid_len = 20
+    selectsensor = SelectSensor(grid_len)
     cov_file_cur = '2021.ton-sub/cov'
     sensor_file_cur = '2021.ton-sub/sensors'
     intruder_hypo_file_cur = '2021.ton-sub/hypothesis'
+    ############################################################
 
     budget = 18
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
