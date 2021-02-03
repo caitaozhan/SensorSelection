@@ -1297,9 +1297,16 @@ def test_outdoor_baseline(algorithms):
     # cov_file_cur = '10.6.testbed.inter-ildw-sub/cov'
     # sensor_file_cur = '10.6.testbed.inter-ildw-sub/sensors'
     # intruder_hypo_file_cur = '10.6.testbed.inter-ildw-sub/hypothesis'
-    cov_file_cur = '10.6.testbed/cov'
-    sensor_file_cur = '10.6.testbed/sensors'
-    intruder_hypo_file_cur = '10.6.testbed/hypothesis'
+
+    # cov_file_cur = '10.6.testbed/cov'
+    # sensor_file_cur = '10.6.testbed/sensors'
+    # intruder_hypo_file_cur = '10.6.testbed/hypothesis'
+    
+    # 20x20 interpolated data
+    cov_file_cur = '2021.ton-sub/cov'
+    sensor_file_cur = '2021.ton-sub/sensors'
+    intruder_hypo_file_cur = '2021.ton-sub/hypothesis'
+    
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
     selectsensor.rescale_intruder_hypothesis(noise_floor=-48)
     selectsensor.transmitters_to_array()  # for GPU
@@ -1330,9 +1337,15 @@ def test_outdoor_weighted(algorithms):
     # cov_file_cur = '10.6.testbed.inter-ildw-sub/cov'
     # sensor_file_cur = '10.6.testbed.inter-ildw-sub/sensors'
     # intruder_hypo_file_cur = '10.6.testbed.inter-ildw-sub/hypothesis'
-    cov_file_cur = '10.6.testbed/cov'
-    sensor_file_cur = '10.6.testbed/sensors'
-    intruder_hypo_file_cur = '10.6.testbed/hypothesis'
+
+    # cov_file_cur = '10.6.testbed/cov'
+    # sensor_file_cur = '10.6.testbed/sensors'
+    # intruder_hypo_file_cur = '10.6.testbed/hypothesis'
+
+    cov_file_cur = '2021.ton-sub/cov'
+    sensor_file_cur = '2021.ton-sub/sensors'
+    intruder_hypo_file_cur = '2021.ton-sub/hypothesis'
+
     budget = 18
     selectsensor.init_data(cov_file_cur, sensor_file_cur, intruder_hypo_file_cur)
     selectsensor.rescale_intruder_hypothesis(noise_floor=-48)
@@ -1450,9 +1463,9 @@ if __name__ == '__main__':
     #test_splat_opt()
     #test_splat_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=20)
     
-    # test_outdoor_baseline(BASELINE_ALL)
+    test_outdoor_baseline(BASELINE_ALL)
     
-    test_outdoor_weighted(BASELINE_ALL)
+    # test_outdoor_weighted(BASELINE_ALL)
 
     #test_weighted_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=1)
     #test_weighted_hetero_baseline(SMALL_INSTANCE, BASELINE_ALL, num_iterations=10)
